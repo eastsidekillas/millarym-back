@@ -59,6 +59,7 @@ class CatalogApiTest(TestCase):
         )
         self.assertEqual(r.status_code, 201, r.content)
         fabric = Fabric.objects.get()
+        self.assertTrue(fabric.active)
         self.assertTrue(r.json()["photo"].startswith("/media/fabrics/"))
         self.assertTrue(r.json()["photo"].endswith(".webp"))
         self.assertTrue(r.json()["photo_thumb"].startswith("/media/fabrics/thumbs/"))
@@ -67,6 +68,16 @@ class CatalogApiTest(TestCase):
             self.assertLessEqual(max(thumb.size), 300)
             self.assertEqual(full.format, "WEBP")
             self.assertEqual(thumb.format, "WEBP")
+
+    def test_multipart_edit_keeps_active(self):
+        fabric = Fabric.objects.create(name="Рогожка")
+        client = self.as_user("kotomtseva")
+        client.patch(f"/api/v1/fabrics/{fabric.pk}/", {"photo": image()}, format="multipart")
+        fabric.refresh_from_db()
+        self.assertTrue(fabric.active)
+        client.patch(f"/api/v1/fabrics/{fabric.pk}/", {"active": "false"}, format="multipart")
+        fabric.refresh_from_db()
+        self.assertFalse(fabric.active)
 
     def test_png_with_transparency(self):
         r = self.as_user("yuldasheva").post(
@@ -126,6 +137,21 @@ class CatalogApiTest(TestCase):
         client.post("/api/v1/fabrics/", {"name": "Velvet"}, format="json")
         r = client.post("/api/v1/fabrics/", {"name": " velvet "}, format="json")
         self.assertEqual(r.status_code, 400)
+
+    def test_fabric_in_work_count(self):
+        from app_production import services
+        from app_auth.models import User
+
+        velour = Fabric.objects.create(name="Велюр")
+        other = Fabric.objects.create(name="Рогожка")
+        sofas = Category.objects.get(name="Прямые диваны")
+        model = ProductModel.objects.create(name="Бостон", category=sofas)
+        manager = User.objects.get(username="okisheva")
+        items = services.create_items(manager, model=model, qty=3, fabrics=[{"slot": "main", "fabric": velour}, {"slot": "comp1", "fabric": velour}])
+        services.trash(User.objects.get(username="voznesenskaya"), items[0].pk)
+        rows = {f["name"]: f["in_work"] for f in self.as_user("okisheva").get("/api/v1/fabrics/?ordering=-in_work").json()["results"]}
+        self.assertEqual(rows, {"Велюр": 2, "Рогожка": 0})
+        self.assertEqual(other.pk, Fabric.objects.get(name="Рогожка").pk)
 
     def test_models_need_catalog_right(self):
         sofas = Category.objects.get(name="Прямые диваны")

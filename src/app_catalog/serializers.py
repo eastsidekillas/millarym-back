@@ -1,4 +1,5 @@
 from rest_framework import serializers
+from rest_framework.fields import empty
 
 from .models import Category, Deadlines, Fabric, KitOption, ProductModel, Team
 
@@ -16,8 +17,13 @@ def check_photo_size(photo):
     return photo
 
 
+class KeepBoolean(serializers.BooleanField):
+    default_empty_html = empty
+
+
 class PhotoSerializerMixin(serializers.Serializer):
     photo = FileUrlField(required=False, allow_null=True)
+    active = KeepBoolean(required=False)
     photo_thumb = FileUrlField(read_only=True)
 
     def validate_photo(self, photo):
@@ -55,9 +61,11 @@ class ProductModelSerializer(PhotoSerializerMixin, UniqueNameMixin, serializers.
 
 
 class FabricSerializer(PhotoSerializerMixin, UniqueNameMixin, serializers.ModelSerializer):
+    in_work = serializers.IntegerField(read_only=True, default=0)
+
     class Meta:
         model = Fabric
-        fields = ["id", "name", "photo", "photo_thumb", "active", "created_at"]
+        fields = ["id", "name", "photo", "photo_thumb", "active", "created_at", "in_work"]
 
 
 class KitOptionSerializer(UniqueNameMixin, serializers.ModelSerializer):

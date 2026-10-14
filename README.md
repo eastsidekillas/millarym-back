@@ -77,6 +77,11 @@ docker compose run --rm app django-admin create_users
 | `/api/v1/teams/` | бригады | `active`, `search` |
 | `/api/v1/deadlines/` | сроки (GET / PATCH) | — |
 
+Загрузить список моделей из Excel или CSV (колонки «Название» и «Категория»):
+`python manage.py import_models models.xlsx --dry-run` — сначала проверка, потом без `--dry-run`.
+Уже заведённые модели и повторы в файле пропускаются; `--create-categories` заводит новые категории,
+`--category «Кресла»` — одна категория на весь файл, `--update-category` — поправить категорию у существующих.
+
 Фото загружаются `multipart/form-data` (поле `photo`, до 15 МБ), сервер сохраняет WebP до 1600 px
 и превью 300 px; `photo: null` убирает фото. Старые файлы удаляются при замене.
 
