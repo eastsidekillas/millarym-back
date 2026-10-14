@@ -41,11 +41,9 @@ MIDDLEWARE = [
     "django.contrib.auth.middleware.AuthenticationMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
-    # Должен быть последним: блокирует вход после N неверных паролей
     "axes.middleware.AxesMiddleware",
 ]
 
-# Порядок важен: сначала axes (блокировка), затем вход по логину или почте
 AUTHENTICATION_BACKENDS = [
     "axes.backends.AxesStandaloneBackend",
     "app_auth.backends.LoginOrEmailBackend",
@@ -60,7 +58,6 @@ REST_FRAMEWORK = {
             "rest_framework.renderers.BrowsableAPIRenderer",
         ]
     ),
-    # Всё закрыто по умолчанию: без входа приложение недоступно
     "DEFAULT_PERMISSION_CLASSES": ["rest_framework.permissions.IsAuthenticated"],
     "DEFAULT_AUTHENTICATION_CLASSES": ["app_auth.authentication.CookieJWTAuthentication"],
     "DEFAULT_PAGINATION_CLASS": "rest_framework.pagination.LimitOffsetPagination",
@@ -94,15 +91,11 @@ SIMPLE_JWT = {
             "httponly": True,
             "secure": COOKIE_SECURE,
             "samesite": "Strict",
-            # refresh-cookie уходит только на эндпоинт обновления
             "path": "/api/v1/token/refresh/",
         },
     },
 }
 
-# Блокировка после неверных паролей (spec 08 §2.0). Пока CRM работает только
-# в локальной сети — выключена; включить (AXES_ENABLED=True), когда откроем доступ
-# из интернета. Считается по логину, не по IP — в офисе у всех один адрес.
 AXES_ENABLED = config("AXES_ENABLED", default=False, cast=bool)
 AXES_FAILURE_LIMIT = config("AXES_FAILURE_LIMIT", default=5, cast=int)
 AXES_COOLOFF_TIME = timedelta(minutes=config("AXES_COOLOFF_MINUTES", default=15, cast=int))

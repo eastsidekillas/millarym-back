@@ -11,8 +11,7 @@ RUN ln -svT /opt/poetry/bin/poetry /usr/local/bin/poetry
 RUN poetry config virtualenvs.in-project true
 
 WORKDIR /app
-# poetry.lock* — файл блокировки появится после первого `poetry lock`
-COPY pyproject.toml poetry.lock* README.md ./
+COPY pyproject.toml poetry.lock README.md ./
 RUN poetry install --no-interaction --no-ansi --no-root --without=dev \
     && rm -rf ~/.cache/pypoetry/{cache,artifacts}
 

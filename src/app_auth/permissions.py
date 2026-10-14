@@ -14,11 +14,6 @@ def who_can(code: str) -> str:
 
 @lru_cache(maxsize=None)
 def HasRight(code: str) -> type[BasePermission]:
-    """
-    Класс прав DRF для действия из rights.RIGHTS:
-        permission_classes = [HasRight("move_orders_cut")]
-    Без права — 403 «Нет прав. Могут: …» (spec 08 §12а).
-    """
     if code not in RIGHTS:
         raise ValueError(f"Неизвестное право: {code}")
 

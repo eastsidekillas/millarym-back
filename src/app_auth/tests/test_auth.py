@@ -79,7 +79,6 @@ class AuthFlowTest(TestCase):
         self.assertEqual(self.login("postnikova", "Novy-parol-77").status_code, 200)
 
     def test_no_lockout_when_disabled(self):
-        """По умолчанию (только локальная сеть) блокировки нет."""
         for _ in range(8):
             self.assertEqual(self.login("postnikova", "bad").status_code, 401)
         self.assertEqual(self.login("postnikova").status_code, 200)

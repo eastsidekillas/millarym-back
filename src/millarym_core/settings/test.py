@@ -1,7 +1,5 @@
 from .base import *  # noqa: F401,F403
 
-# Тесты ядра авторизации гоняются на SQLite в памяти (быстро, без сервера БД).
-# Тесты, которым нужен PostgreSQL (pg_trgm, select_for_update), появятся на этапе 3.
 DEBUG = False
 DATABASES = {"default": {"ENGINE": "django.db.backends.sqlite3", "NAME": ":memory:"}}
 PASSWORD_HASHERS = ["django.contrib.auth.hashers.MD5PasswordHasher"]

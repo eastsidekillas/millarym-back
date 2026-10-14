@@ -1,8 +1,3 @@
-"""
-Матрица прав: каждый сотрудник × каждое действие.
-Ожидаемая таблица переписана из new-crm/08-interface-spec.md §12а НЕЗАВИСИМО
-от app_auth/rights.py — тест ловит расхождение кода с утверждённой спецификацией.
-"""
 from django.core.management import call_command
 from django.test import TestCase
 from rest_framework.response import Response

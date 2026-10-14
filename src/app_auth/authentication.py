@@ -4,11 +4,6 @@ from rest_framework_simplejwt.exceptions import InvalidToken, TokenError
 
 
 class CookieJWTAuthentication(JWTAuthentication):
-    """
-    JWT из httpOnly-cookie (как в AFISHA_LESNOY). Нет cookie — не аутентифицирован
-    (DRF ответит 401, фронт попробует обновить токен). Просроченный токен — 401.
-    """
-
     def authenticate(self, request):
         key = settings.SIMPLE_JWT["COOKIE_SETTINGS"]["ACCESS_TOKEN"]["key"]
         raw = request.COOKIES.get(key)

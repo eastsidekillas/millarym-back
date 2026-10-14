@@ -36,8 +36,6 @@ def _clear_token_cookies(response: Response) -> None:
 
 
 class LoginAPIView(APIView):
-    """Вход по логину или почте. Токены — в httpOnly-cookie, в ответе — профиль."""
-
     permission_classes = [AllowAny]
     authentication_classes = []
 
@@ -52,21 +50,17 @@ class LoginAPIView(APIView):
             password=s.validated_data["password"],
         )
         if user is None:
-            # при блокировке ответ 429 подставит AxesMiddleware (axes_hooks.lockout_response)
             return Response({"detail": "Неверный логин или пароль."}, status=status.HTTP_401_UNAUTHORIZED)
 
         refresh = RefreshToken.for_user(user)
         response = Response(MeSerializer(user).data)
         _set_token_cookie(response, "ACCESS_TOKEN", str(refresh.access_token))
         _set_token_cookie(response, "REFRESH_TOKEN", str(refresh))
-        # сигнал входа: axes сбрасывает счётчик неудач, django обновляет last_login
         user_logged_in.send(sender=user.__class__, request=request._request, user=user)
         return response
 
 
 class TokenRefreshAPIView(APIView):
-    """Новый access-токен по refresh-cookie. Нет/просрочен — 401, фронт ведёт на вход."""
-
     permission_classes = [AllowAny]
     authentication_classes = []
 
@@ -98,8 +92,6 @@ class LogoutAPIView(APIView):
 
 
 class MeAPIView(APIView):
-    """Текущий сотрудник и его права — по ним фронт показывает или прячет кнопки."""
-
     permission_classes = [IsAuthenticated]
 
     @extend_schema(responses=MeSerializer)

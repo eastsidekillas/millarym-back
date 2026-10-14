@@ -6,8 +6,6 @@ from .rights import RIGHTS
 
 
 class User(AbstractUser):
-    """Сотрудник фабрики. Входит по логину или почте (почта необязательна)."""
-
     email = models.EmailField("почта", blank=True, default="")
     position = models.CharField("должность", max_length=120, blank=True, default="")
 
@@ -26,7 +24,6 @@ class User(AbstractUser):
 
     @property
     def short_name(self) -> str:
-        """«Постникова О.» — как подписываются в истории и журнале."""
         first = self.first_name.strip()
         initial = first if first.endswith(".") and len(first) <= 3 else (first[:1] + "." if first else "")
         return f"{self.last_name} {initial}".strip() or self.username
@@ -37,7 +34,6 @@ class User(AbstractUser):
 
     @property
     def rights(self) -> list[str]:
-        """Коды прав из rights.RIGHTS, которые есть у сотрудника."""
         if not self.is_active:
             return []
         return [code for code in RIGHTS if self.has_perm(f"app_auth.{code}")]
@@ -47,11 +43,6 @@ class User(AbstractUser):
 
 
 class AccessRights(models.Model):
-    """
-    Модель без таблицы — только носитель прав CRM (django Permission).
-    Права действий над изделиями описаны в rights.py.
-    """
-
     class Meta:
         managed = False
         default_permissions = ()
