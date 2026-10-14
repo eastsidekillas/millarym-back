@@ -59,6 +59,7 @@ class CatalogApiTest(TestCase):
         )
         self.assertEqual(r.status_code, 201, r.content)
         fabric = Fabric.objects.get()
+        self.assertTrue(fabric.active)
         self.assertTrue(r.json()["photo"].startswith("/media/fabrics/"))
         self.assertTrue(r.json()["photo"].endswith(".webp"))
         self.assertTrue(r.json()["photo_thumb"].startswith("/media/fabrics/thumbs/"))
@@ -67,6 +68,16 @@ class CatalogApiTest(TestCase):
             self.assertLessEqual(max(thumb.size), 300)
             self.assertEqual(full.format, "WEBP")
             self.assertEqual(thumb.format, "WEBP")
+
+    def test_multipart_edit_keeps_active(self):
+        fabric = Fabric.objects.create(name="Рогожка")
+        client = self.as_user("kotomtseva")
+        client.patch(f"/api/v1/fabrics/{fabric.pk}/", {"photo": image()}, format="multipart")
+        fabric.refresh_from_db()
+        self.assertTrue(fabric.active)
+        client.patch(f"/api/v1/fabrics/{fabric.pk}/", {"active": "false"}, format="multipart")
+        fabric.refresh_from_db()
+        self.assertFalse(fabric.active)
 
     def test_png_with_transparency(self):
         r = self.as_user("yuldasheva").post(

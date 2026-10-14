@@ -1,4 +1,5 @@
 from rest_framework import serializers
+from rest_framework.fields import empty
 
 from .models import Category, Deadlines, Fabric, KitOption, ProductModel, Team
 
@@ -16,8 +17,13 @@ def check_photo_size(photo):
     return photo
 
 
+class KeepBoolean(serializers.BooleanField):
+    default_empty_html = empty
+
+
 class PhotoSerializerMixin(serializers.Serializer):
     photo = FileUrlField(required=False, allow_null=True)
+    active = KeepBoolean(required=False)
     photo_thumb = FileUrlField(read_only=True)
 
     def validate_photo(self, photo):
