@@ -32,6 +32,7 @@ INSTALLED_APPS = [
     "app_auth",
     "app_catalog",
     "app_production",
+    "app_reports",
 ]
 
 MIDDLEWARE = [
