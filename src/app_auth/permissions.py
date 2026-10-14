@@ -6,10 +6,13 @@ from .rights import RIGHTS
 
 
 def who_can(code: str) -> str:
+    from django.db.models import Q
+
     from .models import User
 
-    names = [u.short_name for u in User.objects.filter(is_active=True) if u.has_perm(f"app_auth.{code}")]
-    return ", ".join(names) or "никто"
+    has = Q(groups__permissions__codename=code) | Q(user_permissions__codename=code)
+    users = User.objects.filter(has, is_active=True, is_superuser=False).distinct().order_by("last_name")
+    return ", ".join(u.short_name for u in users) or "никто"
 
 
 def no_right_message(code: str) -> str:

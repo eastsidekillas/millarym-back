@@ -1,8 +1,9 @@
 from django.urls import path
 
-from .views import LoginAPIView, LogoutAPIView, MeAPIView, PasswordChangeAPIView, TokenRefreshAPIView
+from .views import UserListAPIView, LoginAPIView, LogoutAPIView, MeAPIView, PasswordChangeAPIView, TokenRefreshAPIView
 
 urlpatterns = [
+    path("users/", UserListAPIView.as_view(), name="users"),
     path("users/login/", LoginAPIView.as_view(), name="login"),
     path("users/logout/", LogoutAPIView.as_view(), name="logout"),
     path("users/me/", MeAPIView.as_view(), name="me"),

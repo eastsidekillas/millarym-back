@@ -72,6 +72,10 @@ SPECTACULAR_SETTINGS = {
     "TITLE": "Миларум CRM API",
     "VERSION": "1.0.0",
     "SERVE_INCLUDE_SCHEMA": False,
+    "ENUM_NAME_OVERRIDES": {
+        "StageEnum": "app_production.models.Stage",
+        "FabricSlotEnum": "app_production.models.FabricSlot",
+    },
 }
 
 COOKIE_SECURE = config("COOKIE_SECURE", default=True, cast=bool)
