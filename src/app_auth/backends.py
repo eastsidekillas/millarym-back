@@ -5,7 +5,6 @@ from .models import User
 
 
 def find_user(login: str) -> User | None:
-    """Ищет сотрудника по логину или почте без учёта регистра."""
     login = (login or "").strip()
     if not login:
         return None
@@ -16,8 +15,6 @@ def find_user(login: str) -> User | None:
 
 
 class LoginOrEmailBackend(ModelBackend):
-    """Вход по логину или почте (spec 08 §2.0)."""
-
     def authenticate(self, request, username=None, password=None, **kwargs):
         user = find_user(username or kwargs.get("login") or "")
         if user is None:

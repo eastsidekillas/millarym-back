@@ -1,8 +1,3 @@
-"""
-Матрица прав: каждый сотрудник × каждое действие.
-Ожидаемая таблица переписана из new-crm/08-interface-spec.md §12а НЕЗАВИСИМО
-от app_auth/rights.py — тест ловит расхождение кода с утверждённой спецификацией.
-"""
 from django.core.management import call_command
 from django.test import TestCase
 from rest_framework.response import Response
@@ -13,17 +8,17 @@ from app_auth.models import User
 from app_auth.permissions import HasRight
 
 ACTIONS = ["move_orders_cut", "move_cut_cover", "move_cover_work", "move_work_fg", "ship", "trash",
-           "restore", "return_to_work", "move_any", "marks", "edit", "reserve"]
+           "restore", "return_to_work", "move_any", "marks", "edit", "reserve", "fabrics", "catalog"]
 
-#                   or_cu cu_co co_wo wo_fg ship  trash rest  ret   any   marks edit  reserve
+#                   or_cu cu_co co_wo wo_fg ship  trash rest  ret   any   marks edit  res   fabr  cat
 EXPECTED = {
-    "yuldasheva":    [1,    1,    1,    1,    1,    1,    1,    1,    1,    1,    1,    1],
-    "zamkova":       [1,    1,    1,    1,    1,    1,    1,    1,    1,    1,    1,    1],
-    "kotomtseva":    [1,    1,    0,    0,    0,    0,    1,    0,    0,    1,    1,    1],
-    "okisheva":      [0,    0,    0,    0,    0,    0,    0,    0,    0,    0,    1,    1],
-    "postnikova":    [0,    0,    0,    0,    0,    0,    0,    0,    0,    0,    1,    1],
-    "plokhikh":      [0,    0,    1,    1,    0,    0,    0,    1,    0,    0,    0,    0],
-    "voznesenskaya": [0,    0,    0,    0,    1,    1,    1,    0,    0,    0,    0,    0],
+    "yuldasheva":    [1,    1,    1,    1,    1,    1,    1,    1,    1,    1,    1,    1,    1,    1],
+    "zamkova":       [1,    1,    1,    1,    1,    1,    1,    1,    1,    1,    1,    1,    1,    1],
+    "kotomtseva":    [1,    1,    0,    0,    0,    0,    1,    0,    0,    1,    1,    1,    1,    0],
+    "okisheva":      [0,    0,    0,    0,    0,    0,    0,    0,    0,    0,    1,    1,    0,    0],
+    "postnikova":    [0,    0,    0,    0,    0,    0,    0,    0,    0,    0,    1,    1,    0,    0],
+    "plokhikh":      [0,    0,    1,    1,    0,    0,    0,    1,    0,    0,    0,    0,    0,    0],
+    "voznesenskaya": [0,    0,    0,    0,    1,    1,    1,    0,    0,    0,    0,    0,    0,    0],
 }
 
 
@@ -61,6 +56,22 @@ class RightsMatrixTest(TestCase):
     def test_me_lists_rights(self):
         user = User.objects.get(username="plokhikh")
         self.assertEqual(sorted(user.rights), sorted(["move_cover_work", "move_work_fg", "return_to_work"]))
+
+    def test_new_right_is_given_once_and_manual_removal_kept(self):
+        from django.contrib.auth.models import Group, Permission
+
+        from app_auth.models import AppliedRight
+        from app_auth.roles import sync_roles
+
+        cutting = Group.objects.get(name="Руководитель закройного цеха")
+        fabrics = Permission.objects.get(codename="fabrics")
+        cutting.permissions.remove(fabrics)
+        AppliedRight.objects.filter(code="fabrics").delete()
+        sync_roles()
+        self.assertTrue(cutting.permissions.filter(codename="fabrics").exists())
+        cutting.permissions.remove(fabrics)
+        sync_roles()
+        self.assertFalse(cutting.permissions.filter(codename="fabrics").exists())
 
     def test_inactive_user_has_no_rights(self):
         user = User.objects.get(username="yuldasheva")

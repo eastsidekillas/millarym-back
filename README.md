@@ -59,7 +59,24 @@ docker compose run --rm app django-admin create_users
 - `POST /api/v1/users/password/` — смена своего пароля.
 - `POST /api/v1/token/refresh/`, `POST /api/v1/users/logout/`.
 
-Права (spec 08 §2.0) — коды в `app_auth/rights.py`, роли — группы Django.
+## Справочники
+
+Читать может любой вошедший, менять — с правом `fabrics` (ткани) или `catalog` (остальное).
+Удаления нет — `active: false`.
+
+| Адрес | Что | Фильтры |
+| --- | --- | --- |
+| `/api/v1/categories/` | категории | `active`, `search` |
+| `/api/v1/models/` | модели, фото | `active`, `category`, `search` |
+| `/api/v1/fabrics/` | ткани, фото (постранично) | `active`, `search`, `limit`, `offset` |
+| `/api/v1/kit-options/` | комплектация для быстрых кнопок | `active` |
+| `/api/v1/teams/` | бригады | `active`, `search` |
+| `/api/v1/deadlines/` | сроки (GET / PATCH) | — |
+
+Фото загружаются `multipart/form-data` (поле `photo`, до 15 МБ), сервер сохраняет WebP до 1600 px
+и превью 300 px; `photo: null` убирает фото. Старые файлы удаляются при замене.
+
+Права — коды в `app_auth/rights.py`, роли — группы Django.
 Матрица ролей задаётся в `ROLES`; при `migrate` группы создаются, но существующие
 не перезаписываются. Вернуть матрицу из кода: `django-admin setup_roles --reset`.
 

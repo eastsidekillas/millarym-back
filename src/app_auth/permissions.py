@@ -1,6 +1,6 @@
 from functools import lru_cache
 
-from rest_framework.permissions import BasePermission
+from rest_framework.permissions import SAFE_METHODS, BasePermission
 
 from .rights import RIGHTS
 
@@ -14,11 +14,6 @@ def who_can(code: str) -> str:
 
 @lru_cache(maxsize=None)
 def HasRight(code: str) -> type[BasePermission]:
-    """
-    Класс прав DRF для действия из rights.RIGHTS:
-        permission_classes = [HasRight("move_orders_cut")]
-    Без права — 403 «Нет прав. Могут: …» (spec 08 §12а).
-    """
     if code not in RIGHTS:
         raise ValueError(f"Неизвестное право: {code}")
 
@@ -34,3 +29,21 @@ def HasRight(code: str) -> type[BasePermission]:
 
     _HasRight.__name__ = f"HasRight_{code}"
     return _HasRight
+
+
+@lru_cache(maxsize=None)
+def ReadOrRight(code: str) -> type[BasePermission]:
+    write = HasRight(code)
+
+    class _ReadOrRight(BasePermission):
+        def has_permission(self, request, view):
+            if request.method in SAFE_METHODS:
+                return bool(request.user and request.user.is_authenticated)
+            check = write()
+            if check.has_permission(request, view):
+                return True
+            self.message = getattr(check, "message", None)
+            return False
+
+    _ReadOrRight.__name__ = f"ReadOrRight_{code}"
+    return _ReadOrRight

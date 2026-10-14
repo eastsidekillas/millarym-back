@@ -4,10 +4,7 @@ from .backends import find_user
 
 
 def username_for_lockout(request, credentials) -> str:
-    """
-    Ключ блокировки — логин сотрудника: «Postnikova», «postnikova» и её почта
-    считаются вместе, иначе можно обходить лимит, меняя написание.
-    """
+    # логин и почта одного сотрудника — один счётчик, иначе лимит обходится сменой написания
     raw = ((credentials or {}).get("username") or "").strip()
     user = find_user(raw)
     return (user.username if user else raw).lower()

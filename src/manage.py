@@ -1,5 +1,4 @@
 #!/usr/bin/env python
-"""Утилита командной строки Django."""
 import os
 import sys
 
