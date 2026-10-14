@@ -60,11 +60,13 @@ class CatalogApiTest(TestCase):
         self.assertEqual(r.status_code, 201, r.content)
         fabric = Fabric.objects.get()
         self.assertTrue(r.json()["photo"].startswith("/media/fabrics/"))
+        self.assertTrue(r.json()["photo"].endswith(".webp"))
         self.assertTrue(r.json()["photo_thumb"].startswith("/media/fabrics/thumbs/"))
         with Image.open(fabric.photo.path) as full, Image.open(fabric.photo_thumb.path) as thumb:
             self.assertEqual(full.size, (1600, 1067))
             self.assertLessEqual(max(thumb.size), 300)
-            self.assertEqual(full.format, "JPEG")
+            self.assertEqual(full.format, "WEBP")
+            self.assertEqual(thumb.format, "WEBP")
 
     def test_png_with_transparency(self):
         r = self.as_user("yuldasheva").post(

@@ -8,11 +8,11 @@ FULL_SIZE = 1600
 THUMB_SIZE = 300
 
 
-def _jpeg(img: Image.Image, size: int, quality: int) -> ContentFile:
+def _webp(img: Image.Image, size: int, quality: int) -> ContentFile:
     copy = img.copy()
     copy.thumbnail((size, size), Image.Resampling.LANCZOS)
     buf = BytesIO()
-    copy.save(buf, "JPEG", quality=quality, optimize=True, progressive=True)
+    copy.save(buf, "WEBP", quality=quality, method=6)
     return ContentFile(buf.getvalue())
 
 
@@ -26,8 +26,8 @@ def shrink(file) -> tuple[ContentFile, ContentFile]:
         img = background
     elif img.mode != "RGB":
         img = img.convert("RGB")
-    return _jpeg(img, FULL_SIZE, 85), _jpeg(img, THUMB_SIZE, 80)
+    return _webp(img, FULL_SIZE, 82), _webp(img, THUMB_SIZE, 78)
 
 
 def new_name() -> str:
-    return f"{uuid.uuid4().hex}.jpg"
+    return f"{uuid.uuid4().hex}.webp"

@@ -73,7 +73,7 @@ docker compose run --rm app django-admin create_users
 | `/api/v1/teams/` | бригады | `active`, `search` |
 | `/api/v1/deadlines/` | сроки (GET / PATCH) | — |
 
-Фото загружаются `multipart/form-data` (поле `photo`, до 15 МБ), сервер сохраняет JPEG до 1600 px
+Фото загружаются `multipart/form-data` (поле `photo`, до 15 МБ), сервер сохраняет WebP до 1600 px
 и превью 300 px; `photo: null` убирает фото. Старые файлы удаляются при замене.
 
 Права — коды в `app_auth/rights.py`, роли — группы Django.
