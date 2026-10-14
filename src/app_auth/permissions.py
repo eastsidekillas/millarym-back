@@ -12,6 +12,10 @@ def who_can(code: str) -> str:
     return ", ".join(names) or "никто"
 
 
+def no_right_message(code: str) -> str:
+    return f"Нет прав: {RIGHTS[code].lower()}. Могут: {who_can(code)}."
+
+
 @lru_cache(maxsize=None)
 def HasRight(code: str) -> type[BasePermission]:
     if code not in RIGHTS:
@@ -24,7 +28,7 @@ def HasRight(code: str) -> type[BasePermission]:
                 return False
             if user.has_perm(f"app_auth.{code}"):
                 return True
-            self.message = f"Нет прав: {RIGHTS[code].lower()}. Могут: {who_can(code)}."
+            self.message = no_right_message(code)
             return False
 
     _HasRight.__name__ = f"HasRight_{code}"
