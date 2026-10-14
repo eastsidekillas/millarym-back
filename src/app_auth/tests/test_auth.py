@@ -78,7 +78,13 @@ class AuthFlowTest(TestCase):
         self.client.cookies.clear()
         self.assertEqual(self.login("postnikova", "Novy-parol-77").status_code, 200)
 
-    @override_settings(AXES_FAILURE_LIMIT=5)
+    def test_no_lockout_when_disabled(self):
+        """По умолчанию (только локальная сеть) блокировки нет."""
+        for _ in range(8):
+            self.assertEqual(self.login("postnikova", "bad").status_code, 401)
+        self.assertEqual(self.login("postnikova").status_code, 200)
+
+    @override_settings(AXES_ENABLED=True, AXES_FAILURE_LIMIT=5)
     def test_lockout_after_five_failures_any_spelling(self):
         spellings = ["postnikova", "Postnikova", "postnikova@milarum.ru", "POSTNIKOVA"]
         for login in spellings:
@@ -89,6 +95,7 @@ class AuthFlowTest(TestCase):
         self.assertEqual(r.status_code, 429)
         self.assertIn("заблокирован", r.json()["detail"])
 
+    @override_settings(AXES_ENABLED=True, AXES_FAILURE_LIMIT=5)
     def test_success_resets_failures(self):
         for _ in range(4):
             self.login("postnikova", "bad")

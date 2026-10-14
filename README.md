@@ -51,8 +51,10 @@ docker compose run --rm app django-admin create_users
 ## Вход и права
 
 - Вход по логину **или** почте (`POST /api/v1/users/login/`), токены JWT в httpOnly cookie.
-- 5 неверных паролей подряд → вход по этому логину заблокирован на 15 минут.
-  Снять раньше: `django-admin axes_reset_username <логин>` или в админке.
+- Блокировка после неверных паролей пока выключена (CRM только в локальной сети).
+  Когда откроем доступ из интернета — `AXES_ENABLED=True` в `.env`: 5 неверных паролей
+  подряд → вход по этому логину закрыт на 15 минут. Снять раньше:
+  `django-admin axes_reset_username <логин>` или в админке.
 - `GET /api/v1/users/me/` — кто вошёл, его роль и коды прав.
 - `POST /api/v1/users/password/` — смена своего пароля.
 - `POST /api/v1/token/refresh/`, `POST /api/v1/users/logout/`.

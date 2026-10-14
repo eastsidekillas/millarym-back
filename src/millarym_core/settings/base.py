@@ -100,8 +100,10 @@ SIMPLE_JWT = {
     },
 }
 
-# Блокировка после неверных паролей (spec 08 §2.0): по логину, не по IP —
-# все сотрудники сидят за одним адресом локальной сети
+# Блокировка после неверных паролей (spec 08 §2.0). Пока CRM работает только
+# в локальной сети — выключена; включить (AXES_ENABLED=True), когда откроем доступ
+# из интернета. Считается по логину, не по IP — в офисе у всех один адрес.
+AXES_ENABLED = config("AXES_ENABLED", default=False, cast=bool)
 AXES_FAILURE_LIMIT = config("AXES_FAILURE_LIMIT", default=5, cast=int)
 AXES_COOLOFF_TIME = timedelta(minutes=config("AXES_COOLOFF_MINUTES", default=15, cast=int))
 AXES_LOCKOUT_PARAMETERS = ["username"]
