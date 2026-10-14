@@ -31,6 +31,7 @@ INSTALLED_APPS = [
     "axes",
     "app_auth",
     "app_catalog",
+    "app_production",
 ]
 
 MIDDLEWARE = [
