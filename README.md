@@ -31,6 +31,10 @@ python manage.py create_users           # 7 сотрудников, печата
 python manage.py runserver
 ```
 
+Тестовые данные (только при `DEBUG=True`): `python manage.py seed_demo` — 7 сотрудников
+с паролем `milarum2026`, модели, ткани, бригады и 60 изделий с историей за полтора месяца.
+Повторно — `--append`, другой пароль — `--password`.
+
 Документация API: http://localhost:8000/api/v1/docs/
 
 Тесты: `DJANGO_ENV=test python manage.py test` (SQLite в памяти).
