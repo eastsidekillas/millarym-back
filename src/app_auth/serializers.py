@@ -32,3 +32,12 @@ class PasswordChangeSerializer(serializers.Serializer):
     def validate_new_password(self, value):
         password_validation.validate_password(value, self.context["request"].user)
         return value
+
+
+class UserShortSerializer(serializers.ModelSerializer):
+    short_name = serializers.CharField(read_only=True)
+    role = serializers.CharField(source="role_name", read_only=True)
+
+    class Meta:
+        model = User
+        fields = ["id", "username", "short_name", "role"]

@@ -76,6 +76,29 @@ docker compose run --rm app django-admin create_users
 Фото загружаются `multipart/form-data` (поле `photo`, до 15 МБ), сервер сохраняет WebP до 1600 px
 и превью 300 px; `photo: null` убирает фото. Старые файлы удаляются при замене.
 
+## Производство
+
+Все запросы — для любого вошедшего; права проверяются на каждом действии (403 «Нет прав… Могут: …»),
+ошибки правил — 400 `{"detail": "…"}`.
+
+| Запрос | Что |
+| --- | --- |
+| `GET /api/v1/items/` | список: `stage` (orders, cut, cover, work, fg, trash), `q`, `model` (id через запятую), `free`, `reserved`, `indiv`, `late`, `ordering`, `limit`/`offset`. Без `stage` — все этапы кроме Корзины |
+| `GET /api/v1/items/counters/` | количество и просроченные по этапам, свободные, Корзина |
+| `GET /api/v1/items/{id}/` | карточка: поля, ткани, история `events`, кнопки `actions` (`allowed` и `reason` «Могут: …») |
+| `POST /api/v1/items/` | завести (`qty` до 50), ответ — список созданных |
+| `PATCH /api/v1/items/{id}/` | модель, комплектация, комментарий, индивидуальный, ткани |
+| `POST /api/v1/items/{id}/move/` | `{to, team?}`; через этап или назад — право «Переместить в…» |
+| `POST /api/v1/items/bulk-move/` | `{ids, to, team?}` — всё или ничего |
+| `POST /api/v1/items/{id}/fabric-arrived/` · `sew/` · `cover-ready/` | отметки |
+| `POST /api/v1/items/{id}/reserve/` | `{reserve}`, пустая строка — снять |
+| `POST /api/v1/items/{id}/ship/` · `trash/` · `restore/` · `return-to-work/` · `copy/` | действия |
+| `GET /api/v1/events/` | журнал: `user`, `item`, `kind`, `from`, `to` (ГГГГ-ММ-ДД), `q` |
+| `GET /api/v1/users/` | сотрудники (для фильтра журнала) |
+
+Поиск: `26/7965` — точный номер, `7965` — номер в любом году, иначе — модель, комплектация, резерв,
+ткань, бригада, комментарий (без учёта регистра, индексы `pg_trgm`).
+
 Права — коды в `app_auth/rights.py`, роли — группы Django.
 Матрица ролей задаётся в `ROLES`; при `migrate` группы создаются, но существующие
 не перезаписываются. Вернуть матрицу из кода: `django-admin setup_roles --reset`.

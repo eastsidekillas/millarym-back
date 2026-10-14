@@ -2,14 +2,15 @@ from django.conf import settings
 from django.contrib.auth import authenticate, user_logged_in
 from django.utils import timezone
 from drf_spectacular.utils import extend_schema
-from rest_framework import status
+from rest_framework import generics, status
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework_simplejwt.exceptions import TokenError
 from rest_framework_simplejwt.tokens import RefreshToken
 
-from .serializers import LoginSerializer, MeSerializer, PasswordChangeSerializer
+from .models import User
+from .serializers import LoginSerializer, MeSerializer, PasswordChangeSerializer, UserShortSerializer
 
 
 def _cookie(name: str) -> dict:
@@ -109,3 +110,11 @@ class PasswordChangeAPIView(APIView):
         request.user.set_password(s.validated_data["new_password"])
         request.user.save(update_fields=["password"])
         return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+class UserListAPIView(generics.ListAPIView):
+    serializer_class = UserShortSerializer
+    pagination_class = None
+
+    def get_queryset(self):
+        return User.objects.filter(is_active=True, is_superuser=False).order_by("last_name").prefetch_related("groups")
