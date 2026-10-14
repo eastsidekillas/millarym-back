@@ -63,6 +63,17 @@ def not_in_trash(item: Item) -> None:
         raise ActionError(f"{item.number} в Корзине — сначала восстановите его.")
 
 
+def check_name(model: ProductModel | None, custom_name: str, current: ProductModel | None = None):
+    custom_name = (custom_name or "").strip()
+    if model is not None:
+        if not model.active and model != current:
+            raise ActionError(f"Модель «{model.name}» скрыта из справочника.")
+        return model, ""
+    if not custom_name:
+        raise ActionError("Выберите модель из справочника или впишите название вручную.")
+    return None, custom_name
+
+
 def check_fabrics(fabrics: list[FabricInput]) -> list[FabricInput]:
     slots = [f["slot"] for f in fabrics]
     if len(slots) != len(set(slots)):
@@ -98,8 +109,9 @@ def fabrics_text(fabrics: Iterable) -> str:
 def create_items(
     user,
     *,
-    model: ProductModel,
     fabrics: list[FabricInput],
+    model: ProductModel | None = None,
+    custom_name: str = "",
     extra: str = "",
     reserve: str = "",
     indiv: bool = False,
@@ -111,8 +123,7 @@ def create_items(
     require(user, "edit")
     if not 1 <= qty <= MAX_QTY:
         raise ActionError(f"Количество — от 1 до {MAX_QTY}.")
-    if not model.active:
-        raise ActionError(f"Модель «{model.name}» скрыта из справочника.")
+    model, custom_name = check_name(model, custom_name)
     check_fabrics(fabrics)
 
     reserve = reserve.strip()
@@ -127,6 +138,7 @@ def create_items(
             period=period,
             seq=seq,
             model=model,
+            custom_name=custom_name,
             extra=extra.strip(),
             comment=comment.strip(),
             reserve=reserve,
@@ -314,7 +326,6 @@ def set_reserve(user, item_id: int, reserve: str) -> Item:
 
 
 EDITABLE = {
-    "model": "Модель",
     "extra": "Комплектация",
     "comment": "Комментарий",
     "indiv": "Индивидуальный заказ",
@@ -325,13 +336,19 @@ EDITABLE = {
 def _show(field: str, value) -> str:
     if field == "indiv":
         return "да" if value else "нет"
-    if isinstance(value, ProductModel):
-        return value.name
     return value or "—"
 
 
 @transaction.atomic
-def update_item(user, item_id: int, *, fabrics: list[FabricInput] | None = None, **fields) -> Item:
+def update_item(
+    user,
+    item_id: int,
+    *,
+    fabrics: list[FabricInput] | None = None,
+    model: ProductModel | None | object = ...,
+    custom_name: str | None = None,
+    **fields,
+) -> Item:
     require(user, "edit")
     unknown = set(fields) - set(EDITABLE)
     if unknown:
@@ -339,8 +356,17 @@ def update_item(user, item_id: int, *, fabrics: list[FabricInput] | None = None,
     item = lock(item_id)
     not_in_trash(item)
 
-    if "model" in fields and fields["model"] != item.model and not fields["model"].active:
-        raise ActionError(f"Модель «{fields['model'].name}» скрыта из справочника.")
+    if model is not ... or custom_name is not None:
+        new_model = item.model if model is ... else model
+        new_custom = item.custom_name if custom_name is None else custom_name
+        new_model, new_custom = check_name(new_model, new_custom, current=item.model)
+        old = (item.model_id, item.custom_name, item.title)
+        item.model, item.custom_name = new_model, new_custom
+        if (item.model_id, item.custom_name) != old[:2]:
+            item.save()
+            title = item.title if item.model_id else f"{item.title} (вне справочника)"
+            log(item, user, EventKind.EDIT, f"Название: {old[2]} → {title}", field="name", old=old[2], new=item.title)
+
     for key in ("extra", "comment", "indiv_note"):
         if key in fields:
             fields[key] = (fields[key] or "").strip()
@@ -367,8 +393,8 @@ def update_item(user, item_id: int, *, fabrics: list[FabricInput] | None = None,
                 EventKind.EDIT,
                 f"{EDITABLE[field]}: {_show(field, old)} → {_show(field, value)}",
                 field=field,
-                old=old.pk if isinstance(old, ProductModel) else old,
-                new=value.pk if isinstance(value, ProductModel) else value,
+                old=old,
+                new=value,
             )
 
     if fabrics is not None:
@@ -395,6 +421,7 @@ def copy_item(user, item_id: int) -> Item:
     [item] = create_items(
         user,
         model=source.model,
+        custom_name=source.custom_name,
         fabrics=fabrics,
         extra=source.extra,
         reserve=source.reserve,

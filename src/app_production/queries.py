@@ -16,7 +16,7 @@ ORDERINGS = {
     "-number": ["-period", "-seq"],
     "created": ["created_at", "id"],
     "-created": ["-created_at", "-id"],
-    "model": ["model__name", "period", "seq"],
+    "model": ["model__name", "custom_name", "period", "seq"],
     "trashed": ["-trashed_at", "-id"],
 }
 
@@ -56,6 +56,7 @@ def search_q(text: str) -> Q:
         return Q(period=2000 + int(year), seq=int(seq))
     q = (
         Q(model__name__icontains=text)
+        | Q(custom_name__icontains=text)
         | Q(extra__icontains=text)
         | Q(reserve__icontains=text)
         | Q(comment__icontains=text)

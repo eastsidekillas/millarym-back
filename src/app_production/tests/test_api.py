@@ -152,6 +152,20 @@ class ActionApiTest(ApiTest):
         self.assertEqual([i["stage"] for i in r.json()], ["orders", "orders"])
         self.assertEqual(r.json()[0]["fabrics"][0]["meters"], "12.50")
 
+    def test_create_custom_name_and_search(self):
+        body = self.body(custom_name="Угловой по эскизу 3,2 м")
+        body.pop("model")
+        r = self.as_user(self.manager).post("/api/v1/items/", body, format="json")
+        self.assertEqual(r.status_code, 201, r.content)
+        self.assertEqual((r.json()[0]["model"], r.json()[0]["title"]), (None, "Угловой по эскизу 3,2 м"))
+        rows = self.as_user(self.manager).get("/api/v1/items/", {"q": "эскизу"}).json()["results"]
+        self.assertEqual(len(rows), 1)
+        item_id = r.json()[0]["id"]
+        r = self.as_user(self.manager).patch(f"/api/v1/items/{item_id}/", {"model": self.model.pk}, format="json")
+        self.assertEqual(r.json()["title"], "Бостон")
+        r = self.as_user(self.manager).post("/api/v1/items/", {"fabrics": body["fabrics"]}, format="json")
+        self.assertEqual(r.status_code, 400)
+
     def test_create_validation(self):
         client = self.as_user(self.manager)
         r = client.post("/api/v1/items/", self.body(fabrics=[]), format="json")

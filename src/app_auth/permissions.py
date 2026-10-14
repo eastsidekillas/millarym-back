@@ -16,7 +16,8 @@ def who_can(code: str) -> str:
 
 
 def no_right_message(code: str) -> str:
-    return f"Нет прав: {RIGHTS[code].lower()}. Могут: {who_can(code)}."
+    names = who_can(code)
+    return f"Нет прав: {RIGHTS[code].lower()}. Могут: {names}{'' if names.endswith('.') else '.'}"
 
 
 @lru_cache(maxsize=None)
