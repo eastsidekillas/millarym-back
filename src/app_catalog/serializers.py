@@ -1,0 +1,78 @@
+from rest_framework import serializers
+
+from .models import Category, Deadlines, Fabric, KitOption, ProductModel, Team
+
+MAX_PHOTO_MB = 15
+
+
+class FileUrlField(serializers.ImageField):
+    def to_representation(self, value):
+        return value.url if value else None
+
+
+def check_photo_size(photo):
+    if photo and photo.size > MAX_PHOTO_MB * 1024 * 1024:
+        raise serializers.ValidationError(f"Фото больше {MAX_PHOTO_MB} МБ.")
+    return photo
+
+
+class PhotoSerializerMixin(serializers.Serializer):
+    photo = FileUrlField(required=False, allow_null=True)
+    photo_thumb = FileUrlField(read_only=True)
+
+    def validate_photo(self, photo):
+        return check_photo_size(photo)
+
+    def update(self, instance, validated_data):
+        if "photo" in validated_data and validated_data["photo"] is None:
+            validated_data["photo"] = ""
+        return super().update(instance, validated_data)
+
+
+class UniqueNameMixin:
+    def validate_name(self, name):
+        name = name.strip()
+        qs = self.Meta.model.objects.filter(name__iexact=name)
+        if self.instance:
+            qs = qs.exclude(pk=self.instance.pk)
+        if qs.exists():
+            raise serializers.ValidationError(f"«{name}» уже есть в справочнике.")
+        return name
+
+
+class CategorySerializer(UniqueNameMixin, serializers.ModelSerializer):
+    class Meta:
+        model = Category
+        fields = ["id", "name", "sort", "active"]
+
+
+class ProductModelSerializer(PhotoSerializerMixin, UniqueNameMixin, serializers.ModelSerializer):
+    category_name = serializers.CharField(source="category.name", read_only=True)
+
+    class Meta:
+        model = ProductModel
+        fields = ["id", "name", "category", "category_name", "photo", "photo_thumb", "active"]
+
+
+class FabricSerializer(PhotoSerializerMixin, UniqueNameMixin, serializers.ModelSerializer):
+    class Meta:
+        model = Fabric
+        fields = ["id", "name", "photo", "photo_thumb", "active", "created_at"]
+
+
+class KitOptionSerializer(UniqueNameMixin, serializers.ModelSerializer):
+    class Meta:
+        model = KitOption
+        fields = ["id", "name", "sort", "active"]
+
+
+class TeamSerializer(UniqueNameMixin, serializers.ModelSerializer):
+    class Meta:
+        model = Team
+        fields = ["id", "name", "foreman", "sort", "active"]
+
+
+class DeadlinesSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Deadlines
+        fields = ["fabric_days", "cut_days", "output_days", "trash_days"]

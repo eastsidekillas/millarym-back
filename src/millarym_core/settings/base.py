@@ -30,6 +30,7 @@ INSTALLED_APPS = [
     "rest_framework_simplejwt",
     "axes",
     "app_auth",
+    "app_catalog",
 ]
 
 MIDDLEWARE = [

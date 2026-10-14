@@ -11,6 +11,8 @@ RIGHTS: dict[str, str] = {
     "marks": "Ставить отметки: ткань пришла, в шитьё, чехол готов",
     "edit": "Создавать, править и копировать изделия",
     "reserve": "Менять резерв",
+    "fabrics": "Добавлять и менять ткани",
+    "catalog": "Вести справочники: модели, категории, комплектация, бригады, сроки",
 }
 
 ALL = list(RIGHTS)
@@ -19,7 +21,7 @@ ROLES: dict[str, list[str]] = {
     "Директор": ALL,
     "Руководитель швейного цеха": ALL,
     "Руководитель закройного цеха": [
-        "move_orders_cut", "move_cut_cover", "restore", "marks", "edit", "reserve",
+        "move_orders_cut", "move_cut_cover", "restore", "marks", "edit", "reserve", "fabrics",
     ],
     "Менеджер": ["edit", "reserve"],
     "Мастер мягкого цеха": ["move_cover_work", "move_work_fg", "return_to_work"],

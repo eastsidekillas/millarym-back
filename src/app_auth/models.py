@@ -49,3 +49,12 @@ class AccessRights(models.Model):
         permissions = list(RIGHTS.items())
         verbose_name = "права CRM"
         verbose_name_plural = "права CRM"
+
+
+class AppliedRight(models.Model):
+    code = models.CharField(max_length=64, unique=True)
+    applied_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = "выданное право"
+        verbose_name_plural = "выданные права"
