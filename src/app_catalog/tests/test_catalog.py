@@ -127,6 +127,21 @@ class CatalogApiTest(TestCase):
         r = client.post("/api/v1/fabrics/", {"name": " velvet "}, format="json")
         self.assertEqual(r.status_code, 400)
 
+    def test_fabric_in_work_count(self):
+        from app_production import services
+        from app_auth.models import User
+
+        velour = Fabric.objects.create(name="Велюр")
+        other = Fabric.objects.create(name="Рогожка")
+        sofas = Category.objects.get(name="Прямые диваны")
+        model = ProductModel.objects.create(name="Бостон", category=sofas)
+        manager = User.objects.get(username="okisheva")
+        items = services.create_items(manager, model=model, qty=3, fabrics=[{"slot": "main", "fabric": velour}, {"slot": "comp1", "fabric": velour}])
+        services.trash(User.objects.get(username="voznesenskaya"), items[0].pk)
+        rows = {f["name"]: f["in_work"] for f in self.as_user("okisheva").get("/api/v1/fabrics/?ordering=-in_work").json()["results"]}
+        self.assertEqual(rows, {"Велюр": 2, "Рогожка": 0})
+        self.assertEqual(other.pk, Fabric.objects.get(name="Рогожка").pk)
+
     def test_models_need_catalog_right(self):
         sofas = Category.objects.get(name="Прямые диваны")
         body = {"name": "Бостон", "category": sofas.pk}

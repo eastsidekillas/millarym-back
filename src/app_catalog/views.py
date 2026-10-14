@@ -1,4 +1,5 @@
 from django_filters.rest_framework import DjangoFilterBackend
+from django.db.models import Count, Q
 from rest_framework import filters, mixins, viewsets
 from rest_framework.generics import RetrieveUpdateAPIView
 from rest_framework.pagination import LimitOffsetPagination
@@ -48,7 +49,12 @@ class ProductModelViewSet(CatalogViewSet):
 
 class FabricViewSet(CatalogViewSet):
     right = "fabrics"
-    queryset = Fabric.objects.all()
+    queryset = Fabric.objects.annotate(
+        in_work=Count("item_fabrics__item", filter=Q(item_fabrics__item__trashed_at__isnull=True), distinct=True)
+    )
+    filter_backends = [*CatalogViewSet.filter_backends, filters.OrderingFilter]
+    ordering_fields = ["name", "in_work", "created_at"]
+    ordering = ["name"]
     serializer_class = FabricSerializer
     parser_classes = [JSONParser, MultiPartParser, FormParser]
     pagination_class = LimitOffsetPagination

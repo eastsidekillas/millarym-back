@@ -55,9 +55,11 @@ class ProductModelSerializer(PhotoSerializerMixin, UniqueNameMixin, serializers.
 
 
 class FabricSerializer(PhotoSerializerMixin, UniqueNameMixin, serializers.ModelSerializer):
+    in_work = serializers.IntegerField(read_only=True, default=0)
+
     class Meta:
         model = Fabric
-        fields = ["id", "name", "photo", "photo_thumb", "active", "created_at"]
+        fields = ["id", "name", "photo", "photo_thumb", "active", "created_at", "in_work"]
 
 
 class KitOptionSerializer(UniqueNameMixin, serializers.ModelSerializer):
