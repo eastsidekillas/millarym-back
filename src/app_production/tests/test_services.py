@@ -265,7 +265,38 @@ class EditCopyTest(ServiceTest):
         [item] = self.create(extra="левый угол")
         item = s.update_item(self.manager, item.pk, model=self.other_model, extra="правый угол", comment="")
         texts = list(item.events.filter(kind="edit").order_by("id").values_list("text", flat=True))
-        self.assertEqual(texts, ["Модель: Бостон → Флоренция", "Комплектация: левый угол → правый угол"])
+        self.assertEqual(texts, ["Название: Бостон → Флоренция", "Комплектация: левый угол → правый угол"])
+
+    def test_edit_on_any_stage(self):
+        [item] = self.create(extra="левый угол")
+        s.move(self.director, item.pk, Stage.WORK, team=self.team)
+        item = s.update_item(
+            self.cutter, item.pk, model=self.other_model, extra="правый угол, накладки венге",
+            fabrics=self.fabrics(leather=self.leather),
+        )
+        self.assertEqual((item.stage, item.title, item.extra), (Stage.WORK, "Флоренция", "правый угол, накладки венге"))
+        self.assertEqual(item.fabrics.count(), 2)
+
+    def test_custom_name(self):
+        [item] = self.create(model=None, custom_name="  Диван «Каприз» по эскизу  ")
+        self.assertEqual((item.model, item.title), (None, "Диван «Каприз» по эскизу"))
+        with self.assertRaisesMessage(ActionError, "впишите название"):
+            self.create(model=None, custom_name=" ")
+        item = s.update_item(self.manager, item.pk, model=self.model)
+        self.assertEqual((item.title, item.custom_name), ("Бостон", ""))
+        item = s.update_item(self.manager, item.pk, model=None, custom_name="Бостон XL")
+        self.assertEqual(item.title, "Бостон XL")
+        texts = list(item.events.filter(kind="edit").order_by("id").values_list("text", flat=True))
+        self.assertEqual(texts, ["Название: Диван «Каприз» по эскизу → Бостон", "Название: Бостон → Бостон XL (вне справочника)"])
+        copy = s.copy_item(self.manager, item.pk)
+        self.assertEqual(copy.title, "Бостон XL")
+
+    def test_hidden_model_stays_on_existing_item(self):
+        [item] = self.create()
+        self.model.active = False
+        self.model.save()
+        item = s.update_item(self.manager, item.pk, model=self.model, extra="левый угол")
+        self.assertEqual(item.extra, "левый угол")
 
     def test_indiv_toggle_sets_due(self):
         [item] = self.create()

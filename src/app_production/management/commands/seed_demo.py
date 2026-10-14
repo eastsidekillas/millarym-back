@@ -127,10 +127,12 @@ class Command(BaseCommand):
             fab.append({"slot": "leather", "fabric": random.choice(leather), "meters": random.choice([1.5, 2, 3])})
         indiv = bool(reserve) and random.random() < 0.35
 
+        custom = random.random() < 0.04
         with clock.frozen():
             [item] = s.create_items(
                 random.choice(managers),
-                model=random.choice(models),
+                model=None if custom else random.choice(models),
+                custom_name="Угловой диван по эскизу заказчика" if custom else "",
                 fabrics=fab,
                 extra=random.choice(EXTRAS),
                 reserve=reserve,

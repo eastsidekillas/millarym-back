@@ -31,9 +31,9 @@ class ItemEventInline(admin.TabularInline):
 
 @admin.register(Item)
 class ItemAdmin(admin.ModelAdmin):
-    list_display = ["number", "model", "extra", "reserve", "stage", "indiv", "trashed_at", "stage_since"]
+    list_display = ["number", "title", "extra", "reserve", "stage", "indiv", "trashed_at", "stage_since"]
     list_filter = ["stage", "indiv", "trash_reason", "model__category"]
-    search_fields = ["number", "legacy_number", "reserve", "model__name", "extra"]
+    search_fields = ["number", "legacy_number", "reserve", "model__name", "custom_name", "extra"]
     inlines = [ItemFabricInline, ItemEventInline]
 
     def has_add_permission(self, request):

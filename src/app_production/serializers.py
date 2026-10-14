@@ -50,7 +50,8 @@ class ItemFabricSerializer(serializers.ModelSerializer):
 
 
 class ItemSerializer(serializers.ModelSerializer):
-    model = RefSerializer()
+    model = RefSerializer(allow_null=True)
+    title = serializers.CharField(read_only=True)
     team = RefSerializer(allow_null=True)
     stage_label = serializers.CharField(source="get_stage_display")
     trash_reason_label = serializers.CharField(source="get_trash_reason_display")
@@ -63,7 +64,7 @@ class ItemSerializer(serializers.ModelSerializer):
     class Meta:
         model = Item
         fields = [
-            "id", "number", "legacy_number", "model", "extra", "comment",
+            "id", "number", "legacy_number", "model", "custom_name", "title", "extra", "comment",
             "reserve", "reserved_at", "is_free",
             "stage", "stage_label", "stage_since", "team",
             "fabric_arrived_at", "sew_at", "cover_ready_at", "work_at",
@@ -132,7 +133,8 @@ class FabricInputSerializer(serializers.Serializer):
 
 
 class ItemCreateSerializer(serializers.Serializer):
-    model = serializers.PrimaryKeyRelatedField(queryset=ProductModel.objects.all())
+    model = serializers.PrimaryKeyRelatedField(queryset=ProductModel.objects.all(), required=False, allow_null=True)
+    custom_name = serializers.CharField(max_length=200, required=False, allow_blank=True, default="")
     fabrics = FabricInputSerializer(many=True)
     extra = serializers.CharField(max_length=500, required=False, allow_blank=True, default="")
     reserve = serializers.CharField(max_length=300, required=False, allow_blank=True, default="")
@@ -143,7 +145,8 @@ class ItemCreateSerializer(serializers.Serializer):
 
 
 class ItemUpdateSerializer(serializers.Serializer):
-    model = serializers.PrimaryKeyRelatedField(queryset=ProductModel.objects.all(), required=False)
+    model = serializers.PrimaryKeyRelatedField(queryset=ProductModel.objects.all(), required=False, allow_null=True)
+    custom_name = serializers.CharField(max_length=200, required=False, allow_blank=True)
     fabrics = FabricInputSerializer(many=True, required=False)
     extra = serializers.CharField(max_length=500, required=False, allow_blank=True)
     indiv = serializers.BooleanField(required=False)

@@ -53,7 +53,10 @@ class Item(models.Model):
     number = models.CharField("номер", max_length=12, unique=True, editable=False)
     legacy_number = models.CharField("номер в старой системе", max_length=40, blank=True, default="")
 
-    model = models.ForeignKey(ProductModel, models.PROTECT, related_name="items", verbose_name="модель")
+    model = models.ForeignKey(
+        ProductModel, models.PROTECT, null=True, blank=True, related_name="items", verbose_name="модель"
+    )
+    custom_name = models.CharField("название вне справочника", max_length=200, blank=True, default="")
     extra = models.CharField("комплектация, дополнения", max_length=500, blank=True, default="")
     comment = models.TextField("комментарий", blank=True, default="")
 
@@ -85,7 +88,12 @@ class Item(models.Model):
         verbose_name = "изделие"
         verbose_name_plural = "изделия"
         ordering = ["-stage_since"]
-        constraints = [models.UniqueConstraint(fields=["period", "seq"], name="item_period_seq_unique")]
+        constraints = [
+            models.UniqueConstraint(fields=["period", "seq"], name="item_period_seq_unique"),
+            models.CheckConstraint(
+                condition=Q(model__isnull=False) | ~Q(custom_name=""), name="item_has_name"
+            ),
+        ]
         indexes = [
             models.Index(fields=["stage", "trashed_at"], name="item_stage_trash_idx"),
             models.Index(fields=["stage"], condition=Q(reserve="", trashed_at=None), name="item_free_idx"),
@@ -97,6 +105,10 @@ class Item(models.Model):
     def save(self, *args, **kwargs):
         self.number = format_number(self.period, self.seq)
         super().save(*args, **kwargs)
+
+    @property
+    def title(self) -> str:
+        return self.model.name if self.model_id else self.custom_name
 
     @property
     def in_trash(self) -> bool:
