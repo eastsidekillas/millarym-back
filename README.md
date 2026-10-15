@@ -127,6 +127,35 @@ docker compose run --rm app django-admin create_users
 `GET /api/v1/reports/free-stock/models/` — модели, у которых есть свободные изделия, и сколько их.
 Поиск по резерву не различает регистр и «е/ё».
 
+## Корзина, фоновые задачи и резервные копии
+
+Отгруженные и удалённые изделия лежат в Корзине 30 дней (срок — `trash_days` в `/api/v1/deadlines/`), потом
+удаляются окончательно: пропадают из списков, поиска, остатков и счётчиков, но запись в базе и история в журнале
+остаются (`purged_at`). Отчёты по заказам (за период, по контрагенту, по модели) отгруженные показывают и после этого. Карточка такого изделия отвечает 404 «удалено из Корзины окончательно ДД.ММ.ГГ».
+
+```bash
+python manage.py purge_trash --dry-run   # что удалится
+python manage.py purge_trash             # удалить
+```
+
+В Docker это делают два контейнера:
+
+- `scheduler` — `django-admin scheduler --at 03:00`: каждую ночь в 03:00 по времени фабрики чистит Корзину;
+- `backup` — каждую ночь в 02:30 кладёт в `./backups` (рядом с `docker-compose.yml`, другая папка — `BACKUP_DIR`
+  в `.env`) дамп базы `db_ГГГГ-ММ-ДД_ЧЧММ.dump` и архив фото `media_….tar.gz`; копии старше 14 дней удаляются.
+  Сделать копию сразу: `docker compose run --rm backup --now` (после неё контейнер продолжит ждать ночи — Ctrl+C).
+
+Копии лежат на том же сервере — раз в неделю переносите свежую на другой диск или в облако.
+
+Восстановить:
+
+```bash
+docker compose stop app scheduler
+docker compose exec -T postgres pg_restore -U millarym -d millarym --clean --if-exists < backups/db_2026-10-15_0230.dump
+docker compose run --rm -v "$PWD/backups:/backups" --entrypoint tar app -xzf /backups/media_2026-10-15_0230.tar.gz -C /app/media
+docker compose start app scheduler
+```
+
 ## Паспорт изделия
 
 `GET /api/v1/passports/?ids=1,2,3` — PDF (A4, на изделие лист с отрывным ярлыком внизу), до 200 изделий за раз.

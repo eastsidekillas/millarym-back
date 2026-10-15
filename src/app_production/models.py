@@ -47,6 +47,18 @@ def format_number(period: int, seq: int) -> str:
     return f"{period % 100:02d}/{seq:04d}"
 
 
+class ItemQuerySet(models.QuerySet):
+    def due_for_purge(self, today: date | None = None, deadlines: Deadlines | None = None):
+        d = deadlines or Deadlines.get()
+        today = today or timezone.localdate()
+        return self.filter(trashed_at__date__lte=today - timedelta(days=d.trash_days))
+
+
+class ItemManager(models.Manager.from_queryset(ItemQuerySet)):
+    def get_queryset(self):
+        return super().get_queryset().filter(purged_at=None)
+
+
 class Item(models.Model):
     period = models.PositiveSmallIntegerField("год")
     seq = models.PositiveIntegerField("номер в году")
@@ -84,10 +96,16 @@ class Item(models.Model):
     trashed_at = models.DateTimeField("в Корзине с", null=True, blank=True)
     trash_reason = models.CharField("причина", max_length=10, choices=TrashReason.choices, blank=True, default="")
 
+    purged_at = models.DateTimeField("удалено из Корзины окончательно", null=True, blank=True, editable=False)
+
     passport_printed_at = models.DateTimeField("паспорт напечатан", null=True, blank=True)
     passport_changed_at = models.DateTimeField("изменено то, что есть в паспорте", null=True, blank=True)
 
+    objects = ItemManager()
+    all_objects = models.Manager()
+
     class Meta:
+        base_manager_name = "all_objects"
         verbose_name = "изделие"
         verbose_name_plural = "изделия"
         ordering = ["-stage_since"]

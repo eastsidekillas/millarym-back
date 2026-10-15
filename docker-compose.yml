@@ -35,6 +35,32 @@ services:
     command: ["django-admin", "migrate", "--no-input"]
     depends_on:
       - postgres
+  scheduler:
+    build: .
+    env_file: .env
+    environment: *common-variables
+    command: ["django-admin", "scheduler", "--at", "03:00"]
+    depends_on:
+      - postgres
+      - migration
+    restart: unless-stopped
+  backup:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: millarym
+      POSTGRES_PASSWORD: millarym
+      POSTGRES_DB: millarym
+      TZ: Asia/Yekaterinburg
+      BACKUP_AT: "02:30"
+      BACKUP_KEEP_DAYS: "14"
+    volumes:
+      - ./deploy/backup.sh:/backup.sh:ro
+      - media:/media:ro
+      - ${BACKUP_DIR:-./backups}:/backups
+    entrypoint: ["/bin/sh", "/backup.sh"]
+    depends_on:
+      - postgres
+    restart: unless-stopped
   postgres:
     image: postgres:16-alpine
     environment:

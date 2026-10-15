@@ -88,8 +88,9 @@ COL_RESERVED_AT = Column("reserved_at", "Резерв с", 10)
 COL_CREATED = Column("created", "Заведено", 10)
 
 
-def base() -> QuerySet[Item]:
-    return Item.objects.select_related("model", "team").prefetch_related("fabrics__fabric")
+def base(with_purged: bool = False) -> QuerySet[Item]:
+    manager = Item.all_objects if with_purged else Item.objects
+    return manager.select_related("model", "team").prefetch_related("fabrics__fabric")
 
 
 def today_label() -> str:
@@ -228,7 +229,7 @@ def reserved(params: dict) -> Result:
 
 def orders_period(params: dict) -> Result:
     start, end, since, until = day_range(params)
-    qs = base().exclude(reserve="").filter(not_deleted(), created_at__range=(since, until)).order_by("created_at")
+    qs = base(with_purged=True).exclude(reserve="").filter(not_deleted(), created_at__range=(since, until)).order_by("created_at")
     return Result(
         "Заказы за период",
         f"Заведены с {fmt_date(start)} по {fmt_date(end)}",
@@ -242,7 +243,7 @@ def orders_by_reserve(params: dict) -> Result:
     text = (params.get("q") or "").strip()
     if not text:
         raise ReportError("Впишите контрагента или часть текста резерва.")
-    qs = base().filter(not_deleted()).exclude(reserve="")
+    qs = base(with_purged=True).filter(not_deleted()).exclude(reserve="")
     items = sorted(reserve_contains(qs, text), key=lambda i: (ru_key(i.reserve), i.period, i.seq))
     return Result(
         "Заказы по контрагенту",
@@ -257,7 +258,7 @@ def orders_by_model(params: dict) -> Result:
     q = models_q(params.get("models", ""))
     if q is None:
         raise ReportError("Выберите модель.")
-    qs = base().exclude(reserve="").filter(q, not_deleted()).order_by("period", "seq")
+    qs = base(with_purged=True).exclude(reserve="").filter(q, not_deleted()).order_by("period", "seq")
     label = models_label(params.get("models", ""))
     return Result(
         "Заказы по модели",
