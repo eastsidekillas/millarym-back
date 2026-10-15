@@ -32,6 +32,7 @@ class Param:
     label: str
     type: str
     required: bool = False
+    placeholder: str = ""
 
 
 @dataclass
@@ -255,18 +256,24 @@ def orders_by_reserve(params: dict) -> Result:
     )
 
 
+def title_matches(item: Item, words: list[str]) -> bool:
+    title = ru_key(item.title)
+    return any(word in title for word in words)
+
+
 def orders_by_model(params: dict) -> Result:
-    q = models_q(params.get("models", ""))
-    if q is None:
-        raise ReportError("Выберите модель.")
-    qs = base(with_purged=True).exclude(reserve="").filter(q, not_deleted()).order_by("period", "seq")
-    label = models_label(params.get("models", ""))
+    words = [ru_key(w.strip()) for w in (params.get("q") or "").split(",") if w.strip()]
+    if not words:
+        raise ReportError("Впишите название изделия или его часть.")
+    qs = base(with_purged=True).exclude(reserve="").filter(not_deleted())
+    items = sorted((i for i in qs if title_matches(i, words)), key=lambda i: (ru_key(i.title), i.period, i.seq))
+    text = ", ".join(w.strip() for w in params["q"].split(",") if w.strip())
     return Result(
         "Заказы по модели",
-        label,
+        f"Название содержит «{text}», включая отгруженные",
         [COL_NUMBER, COL_CREATED, COL_ITEM, COL_PHOTOS, COL_FABRICS, COL_RESERVE, COL_WHERE],
-        [order_row(i) for i in qs],
-        filename=f"Заказы {label} {today_label()}",
+        [order_row(i) for i in items],
+        filename=f"Заказы {text} {today_label()}",
     )
 
 
@@ -352,10 +359,10 @@ def single_item(item: Item) -> Result:
 MODELS_PARAM = Param("models", "Модели", "models")
 REPORTS = [
     Report("free-stock", "Свободные остатки", "Все изделия без резерва на Крое, Складе чехлов, В работе и СГП, с фото тканей. Можно выбрать модели.", [MODELS_PARAM], free_stock),
-    Report("reserved", "Зарезервированные по контрагенту", "Все подписанные изделия на любом этапе: итог по моделям для сверки с заявкой, повторы подсвечены. Годится для погрузки.", [Param("q", "Контрагент или часть резерва", "text"), Param("only_fg", "Только СГП", "bool")], reserved),
+    Report("reserved", "Зарезервированные по контрагенту", "Все подписанные изделия на любом этапе: итог по моделям для сверки с заявкой, повторы подсвечены. Годится для погрузки.", [Param("q", "Контрагент или часть резерва", "text", placeholder="Пусто — все контрагенты"), Param("only_fg", "Только СГП", "bool")], reserved),
     Report("orders-period", "Заказы за период", "Изделия с резервом, заведённые в эти даты, включая отгруженные.", [Param("from", "С", "date", True), Param("to", "По", "date", True)], orders_period),
-    Report("orders-by-reserve", "Заказы по контрагенту", "Все изделия, у которых резерв содержит текст, включая отгруженные.", [Param("q", "Контрагент или часть резерва", "text", True)], orders_by_reserve),
-    Report("orders-by-model", "Заказы по модели", "Изделия с резервом выбранных моделей, включая отгруженные.", [Param("models", "Модели", "models", True)], orders_by_model),
+    Report("orders-by-reserve", "Заказы по контрагенту", "Все изделия, у которых резерв содержит текст, включая отгруженные.", [Param("q", "Контрагент или часть резерва", "text", True, "Например, Фоминых")], orders_by_reserve),
+    Report("orders-by-model", "Заказы по модели", "Изделия с резервом, в названии которых есть этот текст: «Бали» найдёт и «Бали (4 кат.)», и спецзаказы, вписанные вручную. Несколько — через запятую. Включая отгруженные.", [Param("q", "Название изделия или его часть", "text", True, "Например, Бали или Бали, Бостон")], orders_by_model),
     Report("no-fabric", "Не пришла ткань", "Все заказы на этапе «Заказы» без отметки «Ткань пришла»: сколько дней ждём.", [], no_fabric),
     Report("overdue", "Заказы с просроком", "Индивидуальные заказы с просрочкой по ткани, крою или выпуску.", [], overdue),
 ]
