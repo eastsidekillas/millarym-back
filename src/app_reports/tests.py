@@ -53,6 +53,8 @@ class ReportsTest(Fixtures, TestCase):
         self.assertEqual([r["mark"] for r in data["rows"]][:2], ["warn", "warn"])
         self.assertEqual(data["rows"][0]["group"], "ИП Петров: 2 шт.")
         self.assertEqual(data["summary"][0]["rows"], [["Бостон", "2"]])
+        self.assertIn("photos", [c["key"] for c in data["columns"]])
+        self.assertEqual(len(data["rows"][0]["photos"]), len(self.fabrics()))
         only_fg = self.client.get("/api/v1/reports/reserved/?q=петров&only_fg=1").json()
         self.assertEqual([r["number"] for r in only_fg["rows"]], [a.number])
         self.assertNotIn(c.number, [r["number"] for r in data["rows"]])
