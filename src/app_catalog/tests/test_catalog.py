@@ -185,3 +185,31 @@ class CatalogApiTest(TestCase):
         r = client.post("/api/v1/teams/", {"name": "Бригада 1", "foreman": "Иванов"}, format="json")
         self.assertEqual(r.status_code, 201)
         self.assertEqual(self.as_user("plokhikh").post("/api/v1/teams/", {"name": "Б2"}).status_code, 403)
+
+    def test_counts_for_refs_screen(self):
+        from app_production import services
+
+        sofas = Category.objects.get(name="Прямые диваны")
+        boston = ProductModel.objects.create(name="Бостон", category=sofas)
+        ProductModel.objects.create(name="Старый", category=sofas, active=False)
+        fabric = Fabric.objects.create(name="Велюр")
+        items = services.create_items(
+            User.objects.get(username="okisheva"), model=boston, qty=2, fabrics=[{"slot": "main", "fabric": fabric}]
+        )
+        services.trash(User.objects.get(username="voznesenskaya"), items[0].pk)
+        client = self.as_user("okisheva")
+        models = {m["name"]: m["in_work"] for m in client.get("/api/v1/models/").json()}
+        self.assertEqual(models, {"Бостон": 1, "Старый": 0})
+        names = [m["name"] for m in client.get("/api/v1/models/").json()]
+        self.assertEqual(names, sorted(names))
+        listed = client.get("/api/v1/categories/").json()
+        self.assertEqual([c["sort"] for c in listed], sorted(c["sort"] for c in listed))
+        cats = {c["name"]: c["models_count"] for c in listed}
+        self.assertEqual(cats["Прямые диваны"], 1)
+        created = self.as_user("zamkova").post("/api/v1/models/", {"name": "Новая", "category": sofas.pk}, format="json")
+        self.assertEqual(created.json()["in_work"], 0)
+
+    def test_deadlines_limits(self):
+        client = self.as_user("yuldasheva")
+        self.assertEqual(client.patch("/api/v1/deadlines/", {"trash_days": 0}, format="json").status_code, 400)
+        self.assertEqual(client.patch("/api/v1/deadlines/", {"trash_days": 400}, format="json").status_code, 400)
