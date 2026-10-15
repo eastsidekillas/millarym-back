@@ -171,6 +171,7 @@ def order_row(item: Item) -> Row:
             "reserved_at": fmt_date(item.reserved_at),
             "where": where(item),
         },
+        photos(item),
     )
 
 
@@ -220,7 +221,7 @@ def reserved(params: dict) -> Result:
     return Result(
         "Зарезервированные изделия",
         ", ".join(parts).capitalize(),
-        [COL_NUMBER, COL_ITEM, COL_FABRICS, COL_WHERE, COL_RESERVED_AT],
+        [COL_NUMBER, COL_ITEM, COL_PHOTOS, COL_FABRICS, COL_WHERE, COL_RESERVED_AT],
         rows,
         summary,
         filename=f"Резерв {text or 'все'} {today_label()}",
@@ -233,7 +234,7 @@ def orders_period(params: dict) -> Result:
     return Result(
         "Заказы за период",
         f"Заведены с {fmt_date(start)} по {fmt_date(end)}",
-        [COL_NUMBER, COL_CREATED, COL_ITEM, COL_FABRICS, COL_RESERVE, COL_WHERE],
+        [COL_NUMBER, COL_CREATED, COL_ITEM, COL_PHOTOS, COL_FABRICS, COL_RESERVE, COL_WHERE],
         [order_row(i) for i in qs],
         filename=f"Заказы {fmt_date(start)}-{fmt_date(end)}",
     )
@@ -248,7 +249,7 @@ def orders_by_reserve(params: dict) -> Result:
     return Result(
         "Заказы по контрагенту",
         f"Резерв содержит «{text}», включая отгруженные",
-        [COL_NUMBER, COL_CREATED, COL_ITEM, COL_FABRICS, COL_RESERVE, COL_WHERE],
+        [COL_NUMBER, COL_CREATED, COL_ITEM, COL_PHOTOS, COL_FABRICS, COL_RESERVE, COL_WHERE],
         [order_row(i) for i in items],
         filename=f"Заказы {text} {today_label()}",
     )
@@ -263,7 +264,7 @@ def orders_by_model(params: dict) -> Result:
     return Result(
         "Заказы по модели",
         label,
-        [COL_NUMBER, COL_CREATED, COL_ITEM, COL_FABRICS, COL_RESERVE, COL_WHERE],
+        [COL_NUMBER, COL_CREATED, COL_ITEM, COL_PHOTOS, COL_FABRICS, COL_RESERVE, COL_WHERE],
         [order_row(i) for i in qs],
         filename=f"Заказы {label} {today_label()}",
     )

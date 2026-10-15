@@ -90,7 +90,7 @@ h2 { margin: 7mm 0 2mm; font-size: 11pt; font-weight: 600; }
 
   <table class="facts">
     <tr><th>Изделие</th><td><span class="title">{{ p.title }}</span>{% if p.extra %}<br>{{ p.extra }}{% endif %}</td></tr>
-    <tr><th>Резерв</th><td>{{ p.reserve|default:"Свободно" }}</td></tr>
+    <tr><th>Резерв</th><td>{{ p.reserve }}</td></tr>
     {% if p.indiv %}<tr><th>Индивидуальный</th><td class="indiv">ДА{% if p.indiv_note %} — {{ p.indiv_note }}{% endif %}</td></tr>{% endif %}
     <tr><th>Заведено</th><td>{{ p.created }}{% if p.manager %}, {{ p.manager }}{% endif %}</td></tr>
   </table>
