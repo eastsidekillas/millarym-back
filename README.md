@@ -136,17 +136,9 @@ QR-код ведёт в карточку: адрес CRM берётся из `SI
 Комментарий в паспорт не входит и на отметку не влияет.
 
 Вёрстка — `app_reports/templates/reports/passport.html`, шрифт Golos Text лежит в `app_reports/assets/fonts`.
-PDF собирает WeasyPrint, ему нужна системная библиотека Pango. В Docker она ставится в образе. На Mac:
-
-```bash
-brew install pango
-# Mac на Apple Silicon: Homebrew кладёт библиотеки в /opt/homebrew/lib, Python сам их там не ищет
-echo 'export DYLD_FALLBACK_LIBRARY_PATH=/opt/homebrew/lib' >> ~/.zshrc && source ~/.zshrc
-python -c "import weasyprint; print(weasyprint.__version__)"   # проверка
-```
-
-Если сервер запускается из WebStorm/PyCharm, ту же переменную `DYLD_FALLBACK_LIBRARY_PATH=/opt/homebrew/lib`
-добавьте в Environment variables конфигурации запуска (IDE не читает `~/.zshrc`). Без Pango остальная CRM работает,
+PDF собирает WeasyPrint, ему нужна системная библиотека Pango. В Docker она ставится в образе,
+на Mac — `brew install pango`. На Apple Silicon Homebrew кладёт библиотеки в `/opt/homebrew/lib`;
+бэкенд сам ищет их там, переменные окружения не нужны. Без Pango остальная CRM работает,
 не собирается только паспорт.
 
 Права — коды в `app_auth/rights.py`, роли — группы Django.

@@ -1,3 +1,4 @@
+import sys
 from pathlib import Path
 
 import segno
@@ -13,6 +14,30 @@ from .rows import fmt_date, item_fabrics
 
 ASSETS = Path(__file__).resolve().parent / "assets"
 MAX_ITEMS = 200
+
+
+def _find_homebrew_libs() -> None:
+    # macOS (SIP) стирает DYLD_FALLBACK_LIBRARY_PATH при запуске через poetry и IDE,
+    # а без неё dlopen не заглядывает в /opt/homebrew/lib, где Homebrew на Apple Silicon держит Pango.
+    lib = Path("/opt/homebrew/lib")
+    if sys.platform != "darwin" or not lib.is_dir():
+        return
+    import cffi
+
+    original = cffi.FFI.dlopen
+    if getattr(original, "homebrew", False):
+        return
+
+    def dlopen(self, name, flags=0):
+        try:
+            return original(self, name, flags)
+        except OSError:
+            if isinstance(name, str) and "/" not in name and (lib / name).exists():
+                return original(self, str(lib / name), flags)
+            raise
+
+    dlopen.homebrew = True
+    cffi.FFI.dlopen = dlopen
 
 
 def card_url(item: Item) -> str:
@@ -55,6 +80,7 @@ def render_passports(items: list[Item]) -> bytes:
             "logo": (ASSETS / "logo.png").as_uri(),
         },
     )
+    _find_homebrew_libs()
     try:
         from weasyprint import HTML
     except OSError:
