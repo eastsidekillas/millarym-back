@@ -141,3 +141,29 @@ class PassportTest(Fixtures, TestCase):
         self.assertEqual(self.client.get("/api/v1/passports/?ids=999999").status_code, 404)
         ids = ",".join(str(i) for i in range(1, 202))
         self.assertEqual(self.client.get(f"/api/v1/passports/?ids={ids}").status_code, 400)
+
+
+class OrdersByModelTest(Fixtures, TestCase):
+    @classmethod
+    def setUpTestData(cls):
+        cls.make_fixtures()
+
+    def setUp(self):
+        self.client = APIClient()
+        self.client.force_authenticate(self.master)
+
+    def test_text_finds_catalog_variants_and_custom_names(self):
+        from app_catalog.models import ProductModel
+
+        bali = ProductModel.objects.create(name="Бали", category=self.model.category)
+        bali4 = ProductModel.objects.create(name="Бали (4 кат.)", category=self.model.category)
+        make = lambda **kw: s.create_items(self.manager, fabrics=self.fabrics(), reserve="ИП Петров", **kw)[0]
+        a, b = make(model=bali), make(model=bali4)
+        c = make(model=None, custom_name="Бали по эскизу заказчика")
+        make(model=self.model)
+        s.create_items(self.manager, model=bali, fabrics=self.fabrics())
+        data = self.client.get("/api/v1/reports/orders-by-model/?q=бали").json()
+        self.assertEqual({r["number"] for r in data["rows"]}, {a.number, b.number, c.number})
+        both = self.client.get(f"/api/v1/reports/orders-by-model/?q=эскиз, {self.model.name}").json()
+        self.assertEqual(both["total"], 2)
+        self.assertEqual(self.client.get("/api/v1/reports/orders-by-model/").status_code, 400)
