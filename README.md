@@ -77,6 +77,10 @@ docker compose run --rm app django-admin create_users
 | `/api/v1/teams/` | бригады | `active`, `search` |
 | `/api/v1/deadlines/` | сроки (GET / PATCH) | — |
 
+Справочник моделей фабрики (160 позиций, 15.10.2026) лежит в `data/models-2026-10-15.csv`. Загрузить в новую базу:
+`python manage.py import_models ../data/models-2026-10-15.csv --create-categories` (из папки `src`).
+Категории расставлены по названию и правятся в справочнике.
+
 Загрузить список моделей из Excel или CSV (колонки «Название» и «Категория»):
 `python manage.py import_models models.xlsx --dry-run` — сначала проверка, потом без `--dry-run`.
 Уже заведённые модели и повторы в файле пропускаются; `--create-categories` заводит новые категории,
