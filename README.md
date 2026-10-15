@@ -39,6 +39,23 @@ python manage.py runserver
 
 Тесты: `DJANGO_ENV=test python manage.py test` (SQLite в памяти).
 
+## Сервер с доменом (HTTPS)
+
+Нужны Ubuntu или Debian с доступом root и домен, у которого запись A указывает на сервер. На сервере:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/eastsidekillas/millarym-front/main/deploy/server-setup.sh | bash -s -- test.chillgate.cc
+```
+
+Скрипт ставит Docker, скачивает оба репозитория в `/opt/millarym`, создаёт `.env` (случайные секретный ключ и
+пароль базы, HTTPS-куки, защита от подбора пароля включена), собирает и запускает всё вместе с Caddy — он сам
+получает сертификат Let's Encrypt (`deploy/compose.server.yml`, `deploy/Caddyfile`). Наружу открыты только 80 и 443.
+При первом запуске загружает справочник моделей и заводит сотрудников — логины и пароли в `/root/millarym-passwords.txt`.
+
+`millarym-back` приватный: при первом запуске скрипт покажет ключ сервера — добавить его в GitHub →
+Settings → Deploy keys (только чтение) и запустить скрипт ещё раз. Обновить сервер — тот же запуск:
+`bash /opt/millarym/millarym-front/deploy/server-setup.sh test.chillgate.cc`. Лог — `/opt/millarym/deploy.log`.
+
 ## Сервер (Docker)
 
 Рядом должны лежать оба репозитория: `millarym/millarym-back` и `millarym/millarym-front`.

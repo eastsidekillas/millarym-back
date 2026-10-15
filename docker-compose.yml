@@ -3,7 +3,7 @@ x-common-variables: &common-variables
   DATABASE_ENGINE: django.db.backends.postgresql
   DATABASE_NAME: millarym
   DATABASE_USER: millarym
-  DATABASE_PASSWORD: millarym
+  DATABASE_PASSWORD: ${POSTGRES_PASSWORD:-millarym}
   DATABASE_HOST: postgres
   DATABASE_PORT: 5432
   STATIC_ROOT: /app/static
@@ -48,7 +48,7 @@ services:
     image: postgres:16-alpine
     environment:
       POSTGRES_USER: millarym
-      POSTGRES_PASSWORD: millarym
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-millarym}
       POSTGRES_DB: millarym
       TZ: Asia/Yekaterinburg
       BACKUP_AT: "02:30"
@@ -65,7 +65,7 @@ services:
     image: postgres:16-alpine
     environment:
       POSTGRES_USER: millarym
-      POSTGRES_PASSWORD: millarym
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-millarym}
       POSTGRES_DB: millarym
     ports:
       - "5432:5432"
