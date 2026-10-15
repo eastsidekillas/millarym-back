@@ -21,7 +21,7 @@ RUN poetry install --no-interaction --no-ansi --without=dev
 
 FROM python:3.12-slim AS main
 RUN apt-get update && \
-    apt-get install -y libpq5 && \
+    apt-get install -y --no-install-recommends libpq5 libpango-1.0-0 libpangoft2-1.0-0 libharfbuzz-subset0 && \
     rm -rf /var/lib/apt/lists/*
 WORKDIR /app
 COPY --from=builder /app /app

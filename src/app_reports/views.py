@@ -10,6 +10,7 @@ from rest_framework.views import APIView
 from app_production.queries import base_queryset
 
 from .excel import build_xlsx
+from .passport import MAX_ITEMS, mark_printed, render_passports
 from .reports import BY_KIND, REPORTS, ReportError, free_stock_models, single_item
 
 XLSX = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
@@ -71,3 +72,37 @@ class ItemXlsxView(APIView):
         if item is None:
             raise NotFound("Изделие не найдено.")
         return xlsx_response(single_item(item))
+
+
+def parse_ids(raw: str | None) -> list[int]:
+    try:
+        ids = list(dict.fromkeys(int(x) for x in (raw or "").split(",") if x.strip()))
+    except ValueError:
+        raise ValidationError({"detail": ["Номера изделий указаны неверно."]})
+    if not ids:
+        raise ValidationError({"detail": ["Выберите изделия для печати."]})
+    if len(ids) > MAX_ITEMS:
+        raise ValidationError({"detail": [f"За раз можно напечатать не больше {MAX_ITEMS} паспортов."]})
+    return ids
+
+
+class PassportView(APIView):
+    @extend_schema(
+        operation_id="passports_pdf",
+        parameters=[OpenApiParameter("ids", str, required=True, description="id изделий через запятую")],
+        responses={(200, "application/pdf"): OpenApiTypes.BINARY},
+    )
+    def get(self, request):
+        ids = parse_ids(request.query_params.get("ids"))
+        found = {i.pk: i for i in base_queryset().filter(pk__in=ids)}
+        missing = [i for i in ids if i not in found]
+        if missing:
+            raise NotFound("Изделие не найдено." if len(missing) == 1 else "Некоторые изделия не найдены.")
+        items = [found[i] for i in ids]
+        pdf = render_passports(items)
+        mark_printed(request.user, items)
+        name = f"Паспорт {items[0].number.replace('/', '-')}.pdf" if len(items) == 1 else f"Паспорта, {len(items)} шт.pdf"
+        response = HttpResponse(pdf, content_type="application/pdf")
+        response["Content-Disposition"] = f"inline; filename=passport.pdf; filename*=UTF-8''{quote(name)}"
+        response["Access-Control-Expose-Headers"] = "Content-Disposition"
+        return response

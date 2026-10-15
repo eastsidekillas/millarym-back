@@ -52,6 +52,7 @@ class ItemFabricSerializer(serializers.ModelSerializer):
 class ItemSerializer(serializers.ModelSerializer):
     model = RefSerializer(allow_null=True)
     title = serializers.CharField(read_only=True)
+    passport_outdated = serializers.BooleanField(read_only=True)
     team = RefSerializer(allow_null=True)
     stage_label = serializers.CharField(source="get_stage_display")
     trash_reason_label = serializers.CharField(source="get_trash_reason_display")
@@ -71,6 +72,7 @@ class ItemSerializer(serializers.ModelSerializer):
             "indiv", "indiv_note", "due_at", "warnings",
             "fabrics", "manager", "created_at",
             "trashed_at", "trash_reason", "trash_reason_label", "purge_at",
+            "passport_printed_at", "passport_outdated",
         ]
 
     @extend_schema_field(ItemFabricSerializer(many=True))
