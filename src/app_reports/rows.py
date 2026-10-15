@@ -39,6 +39,9 @@ def fabrics_text(item: Item, meters: bool = False) -> str:
 
 
 def where(item: Item) -> str:
+    if item.purged_at:
+        verb = "Отгружено" if item.trash_reason == TrashReason.SHIPPED else "Удалено"
+        return f"{verb} {fmt_date(item.trashed_at)}"
     if item.trashed_at:
         verb = "отгружено" if item.trash_reason == TrashReason.SHIPPED else "удалено"
         return f"Корзина: {verb} {fmt_date(item.trashed_at)}"

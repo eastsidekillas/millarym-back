@@ -67,3 +67,15 @@ class PurgeTest(Fixtures, TestCase):
         tz = ZoneInfo("Asia/Yekaterinburg")
         self.assertEqual(next_run(datetime(2026, 10, 15, 2, 0, tzinfo=tz), "03:00"), datetime(2026, 10, 15, 3, 0, tzinfo=tz))
         self.assertEqual(next_run(datetime(2026, 10, 15, 3, 0, tzinfo=tz), "03:00"), datetime(2026, 10, 16, 3, 0, tzinfo=tz))
+
+    def test_order_reports_keep_shipped_after_purge(self):
+        s.set_reserve(self.manager, self.alive.pk, "ИП Петров")
+        s.move(self.director, self.alive.pk, "fg")
+        s.ship(self.director, self.alive.pk)
+        Item.objects.filter(pk=self.alive.pk).update(trashed_at=timezone.now() - timedelta(days=31))
+        s.purge_trash()
+        data = self.client.get("/api/v1/reports/orders-by-reserve/?q=петров").json()
+        self.assertEqual([r["number"] for r in data["rows"]], [self.alive.number])
+        self.assertTrue(data["rows"][0]["cells"]["where"].startswith("Отгружено "))
+        reserved = self.client.get("/api/v1/reports/reserved/?q=петров").json()
+        self.assertEqual(reserved["total"], 0)
