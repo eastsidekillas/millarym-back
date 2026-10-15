@@ -1,7 +1,7 @@
 import re
 from datetime import datetime, time, timedelta
 
-from django.db.models import Count, Q, QuerySet
+from django.db.models import Count, F, Q, QuerySet
 from django.utils import timezone
 
 from app_catalog.models import Deadlines
@@ -83,7 +83,7 @@ def filter_items(qs: QuerySet[Item], params) -> QuerySet[Item]:
         qs = qs.filter(trashed_at__isnull=False)
     elif stage:
         qs = qs.filter(stage=stage, trashed_at__isnull=True)
-    else:
+    elif not text:
         qs = qs.filter(trashed_at__isnull=True)
 
     if text:
@@ -102,7 +102,10 @@ def filter_items(qs: QuerySet[Item], params) -> QuerySet[Item]:
         qs = qs.filter(model_id__in=[int(m) for m in models])
 
     ordering = params.get("ordering") or ("trashed" if stage == TRASH else "recent")
-    return qs.order_by(*ORDERINGS.get(ordering, ORDERINGS["recent"]))
+    order = ORDERINGS.get(ordering, ORDERINGS["recent"])
+    if not stage and text:
+        return qs.order_by(F("trashed_at").asc(nulls_first=True), *order)
+    return qs.order_by(*order)
 
 
 def counters() -> dict:

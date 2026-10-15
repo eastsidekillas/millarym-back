@@ -113,7 +113,7 @@ docker compose run --rm app django-admin create_users
 
 | Запрос | Что |
 | --- | --- |
-| `GET /api/v1/items/` | список: `stage` (orders, cut, cover, work, fg, trash), `q`, `model` (id через запятую), `free`, `reserved`, `indiv`, `late`, `ordering`, `limit`/`offset`. Без `stage` — все этапы кроме Корзины |
+| `GET /api/v1/items/` | список: `stage` (orders, cut, cover, work, fg, trash), `q`, `model` (id через запятую), `free`, `reserved`, `indiv`, `late`, `ordering`, `limit`/`offset`. Без `stage` — все этапы кроме Корзины; с `q` без `stage` — ещё и Корзина (в конце списка) |
 | `GET /api/v1/items/counters/` | количество и просроченные по этапам, свободные, Корзина |
 | `GET /api/v1/items/{id}/` | карточка: поля, ткани, история `events`, кнопки `actions` (`allowed` и `reason` «Могут: …») |
 | `POST /api/v1/items/` | завести (`qty` до 50), ответ — список созданных |
