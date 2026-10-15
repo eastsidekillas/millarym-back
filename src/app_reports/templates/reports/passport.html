@@ -1,0 +1,138 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<title>Паспорт изделия</title>
+<style>
+@font-face { font-family: "Golos Text"; font-weight: 400; src: url("{{ fonts }}/golos-text-400.woff"); }
+@font-face { font-family: "Golos Text"; font-weight: 600; src: url("{{ fonts }}/golos-text-600.woff"); }
+@font-face { font-family: "Golos Text"; font-weight: 700; src: url("{{ fonts }}/golos-text-700.woff"); }
+
+@page { size: A4; margin: 12mm 14mm; }
+* { box-sizing: border-box; }
+body { margin: 0; font-family: "Golos Text", sans-serif; font-size: 10.5pt; line-height: 1.35; color: #000; }
+.page { position: relative; height: 272mm; page-break-after: always; }
+.page:last-child { page-break-after: auto; }
+table { border-collapse: collapse; width: 100%; }
+td, th { padding: 0; vertical-align: top; text-align: left; }
+
+.head td { vertical-align: middle; }
+.logo { width: 22mm; }
+.firm { padding-left: 4mm; font-size: 9pt; color: #333; }
+.firm b { display: block; font-size: 11pt; color: #000; }
+.printed { text-align: right; font-size: 8pt; color: #666; }
+.rule { border-top: 0.6pt solid #000; margin: 5mm 0 6mm; }
+
+.kind { font-size: 10pt; color: #333; }
+h1 { margin: 0; font-size: 15pt; font-weight: 600; }
+.number { margin-top: 1mm; font-size: 46pt; font-weight: 700; line-height: 1; font-variant-numeric: tabular-nums; }
+.qr { width: 34mm; text-align: right; }
+.qr img { width: 34mm; height: 34mm; }
+.qr small { display: block; margin-top: 1mm; font-size: 7.5pt; color: #666; text-align: right; }
+
+.facts { margin-top: 7mm; }
+.facts th { width: 40mm; padding: 2mm 0; font-weight: 400; color: #444; border-bottom: 0.4pt solid #bbb; }
+.facts td { padding: 2mm 0; border-bottom: 0.4pt solid #bbb; }
+.facts .title { font-size: 13pt; font-weight: 600; }
+.indiv { font-weight: 600; }
+
+h2 { margin: 7mm 0 2mm; font-size: 11pt; font-weight: 600; }
+.fabrics th { padding: 1.5mm 2mm; font-weight: 400; font-size: 9pt; color: #444; border-bottom: 0.6pt solid #000; }
+.fabrics td { padding: 2mm; border-bottom: 0.4pt solid #bbb; }
+.fabrics .m { text-align: right; width: 28mm; font-variant-numeric: tabular-nums; }
+.fabrics .slot { width: 36mm; color: #444; }
+.empty { color: #666; }
+
+.hand { margin-top: 9mm; }
+.hand td { padding-right: 6mm; white-space: nowrap; }
+.hand td:last-child { padding-right: 0; }
+.line { display: inline-block; border-bottom: 0.6pt solid #000; height: 5mm; vertical-align: bottom; }
+.hand-row + .hand-row td { padding-top: 8mm; }
+
+.guarantee { margin-top: 9mm; font-size: 9pt; color: #333; }
+
+.label { position: absolute; left: 0; right: 0; bottom: 0; padding-top: 5mm; border-top: 0.8pt dashed #000; }
+.cut { position: absolute; top: -2.2mm; left: 50%; margin-left: -14mm; width: 28mm; background: #fff; text-align: center; font-size: 7pt; color: #666; }
+.label .number { font-size: 30pt; }
+.label .what { padding-left: 6mm; }
+.label .what b { display: block; font-size: 12pt; }
+.label .what span { display: block; margin-top: 1mm; font-size: 9pt; color: #333; }
+.label .qr, .label .qr img { width: 24mm; }
+.label .qr img { height: 24mm; }
+</style>
+</head>
+<body>
+{% for p in passports %}
+<section class="page">
+  <table class="head">
+    <tr>
+      <td class="logo"><img src="{{ logo }}" alt="" style="width: 22mm"></td>
+      <td class="firm">
+        <b>Фабрика домашней мебели «Миларум»</b>
+        Свердловская обл., г. Лесной, Хвойный проезд, д. 18<br>
+        Отдел продаж: 8 (800) 511-15-10
+      </td>
+      <td class="printed">Напечатан {{ printed }}</td>
+    </tr>
+  </table>
+  <div class="rule"></div>
+
+  <table>
+    <tr>
+      <td>
+        <div class="kind">{% if p.for_order %}Изделие под заказ{% else %}Изделие на склад{% endif %}</div>
+        <h1>Паспорт изделия</h1>
+        <div class="number">№ {{ p.number }}</div>
+      </td>
+      <td class="qr"><img src="{{ p.qr }}" alt=""><small>Карточка в CRM</small></td>
+    </tr>
+  </table>
+
+  <table class="facts">
+    <tr><th>Изделие</th><td><span class="title">{{ p.title }}</span>{% if p.extra %}<br>{{ p.extra }}{% endif %}</td></tr>
+    <tr><th>Резерв</th><td>{{ p.reserve|default:"Свободно" }}</td></tr>
+    {% if p.indiv %}<tr><th>Индивидуальный</th><td class="indiv">ДА{% if p.indiv_note %} — {{ p.indiv_note }}{% endif %}</td></tr>{% endif %}
+    <tr><th>Заведено</th><td>{{ p.created }}{% if p.manager %}, {{ p.manager }}{% endif %}</td></tr>
+  </table>
+
+  <h2>Ткани</h2>
+  <table class="fabrics">
+    <tr><th class="slot">Место</th><th>Ткань</th><th class="m">Метраж</th></tr>
+    {% for f in p.fabrics %}
+    <tr><td class="slot">{{ f.slot }}</td><td>{{ f.name }}</td><td class="m">{{ f.meters }}</td></tr>
+    {% empty %}
+    <tr><td colspan="3" class="empty">Ткани не указаны</td></tr>
+    {% endfor %}
+  </table>
+
+  <table class="hand">
+    <tr class="hand-row">
+      <td>Дата выпуска <span class="line" style="width: 32mm"></span></td>
+      <td>Швея № <span class="line" style="width: 22mm"></span></td>
+      <td>Стол № <span class="line" style="width: 22mm"></span></td>
+    </tr>
+    <tr class="hand-row">
+      <td colspan="3">Мастер-контролёр ОТК <span class="line" style="width: 60mm"></span> <span class="line" style="width: 40mm"></span></td>
+    </tr>
+  </table>
+
+  <p class="guarantee">Изделие изготовлено по ГОСТ 19917-2014. Гарантийный срок — 18 месяцев, срок службы — 10 лет.</p>
+
+  <div class="label">
+    <span class="cut">линия отреза</span>
+    <table>
+      <tr>
+        <td style="width: 1%; white-space: nowrap"><div class="number">{{ p.number }}</div></td>
+        <td class="what">
+          <b>{{ p.title }}{% if p.extra %}, {{ p.extra }}{% endif %}</b>
+          <span>{% for f in p.fabrics %}{{ f.slot }}: {{ f.name }}{% if not forloop.last %}; {% endif %}{% endfor %}</span>
+          {% if p.reserve %}<span>{{ p.reserve }}</span>{% endif %}
+        </td>
+        <td class="qr"><img src="{{ p.qr }}" alt=""></td>
+      </tr>
+    </table>
+  </div>
+</section>
+{% endfor %}
+</body>
+</html>

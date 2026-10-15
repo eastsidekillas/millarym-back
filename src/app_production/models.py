@@ -84,6 +84,9 @@ class Item(models.Model):
     trashed_at = models.DateTimeField("в Корзине с", null=True, blank=True)
     trash_reason = models.CharField("причина", max_length=10, choices=TrashReason.choices, blank=True, default="")
 
+    passport_printed_at = models.DateTimeField("паспорт напечатан", null=True, blank=True)
+    passport_changed_at = models.DateTimeField("изменено то, что есть в паспорте", null=True, blank=True)
+
     class Meta:
         verbose_name = "изделие"
         verbose_name_plural = "изделия"
@@ -113,6 +116,11 @@ class Item(models.Model):
     @property
     def in_trash(self) -> bool:
         return self.trashed_at is not None
+
+    @property
+    def passport_outdated(self) -> bool:
+        printed, changed = self.passport_printed_at, self.passport_changed_at
+        return bool(printed and changed and changed > printed)
 
     @property
     def is_free(self) -> bool:
@@ -163,6 +171,7 @@ class EventKind(models.TextChoices):
     TRASH = "trash", "Удаление в Корзину"
     RESTORE = "restore", "Восстановление"
     COPY = "copy", "Копия"
+    PASSPORT = "passport", "Паспорт"
 
 
 class ItemEvent(models.Model):

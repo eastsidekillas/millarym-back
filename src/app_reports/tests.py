@@ -88,3 +88,54 @@ class ReportsTest(Fixtures, TestCase):
         self.assertEqual(r.status_code, 200)
         self.assertIn("26-", r["Content-Disposition"])
         self.assertEqual(self.client.get("/api/v1/items/999999/export/").status_code, 404)
+
+
+class PassportTest(Fixtures, TestCase):
+    @classmethod
+    def setUpTestData(cls):
+        cls.make_fixtures()
+
+    def setUp(self):
+        self.client = APIClient()
+        self.client.force_authenticate(self.master)
+        self.a, self.b = s.create_items(self.manager, model=self.model, fabrics=self.fabrics(), qty=2)
+
+    def item(self, obj):
+        return self.client.get(f"/api/v1/items/{obj.pk}/").json()
+
+    def test_pdf_marks_printed(self):
+        response = self.client.get(f"/api/v1/passports/?ids={self.a.pk},{self.b.pk}")
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response["Content-Type"], "application/pdf")
+        self.assertTrue(response.content.startswith(b"%PDF"))
+        self.assertIn("inline;", response["Content-Disposition"])
+        data = self.item(self.a)
+        self.assertIsNotNone(data["passport_printed_at"])
+        self.assertFalse(data["passport_outdated"])
+        self.assertEqual(data["events"][0]["text"], "Паспорт напечатан")
+        self.client.get(f"/api/v1/passports/?ids={self.a.pk}")
+        self.assertEqual(self.item(self.a)["events"][0]["text"], "Паспорт напечатан повторно")
+
+    def test_outdated_after_edit_or_reserve_not_comment(self):
+        self.client.get(f"/api/v1/passports/?ids={self.a.pk},{self.b.pk}")
+        s.update_item(self.manager, self.a.pk, comment="позвонить")
+        self.assertFalse(self.item(self.a)["passport_outdated"])
+        s.update_item(self.manager, self.a.pk, extra="правый угол")
+        self.assertTrue(self.item(self.a)["passport_outdated"])
+        s.set_reserve(self.manager, self.b.pk, "ИП Петров")
+        self.assertTrue(self.item(self.b)["passport_outdated"])
+        self.client.get(f"/api/v1/passports/?ids={self.a.pk}")
+        self.assertFalse(self.item(self.a)["passport_outdated"])
+
+    def test_never_printed_is_not_outdated(self):
+        s.update_item(self.manager, self.a.pk, extra="правый угол")
+        data = self.item(self.a)
+        self.assertIsNone(data["passport_printed_at"])
+        self.assertFalse(data["passport_outdated"])
+
+    def test_bad_ids(self):
+        self.assertEqual(self.client.get("/api/v1/passports/").status_code, 400)
+        self.assertEqual(self.client.get("/api/v1/passports/?ids=abc").status_code, 400)
+        self.assertEqual(self.client.get("/api/v1/passports/?ids=999999").status_code, 404)
+        ids = ",".join(str(i) for i in range(1, 202))
+        self.assertEqual(self.client.get(f"/api/v1/passports/?ids={ids}").status_code, 400)

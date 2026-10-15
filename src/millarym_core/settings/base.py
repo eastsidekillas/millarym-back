@@ -160,3 +160,5 @@ STATIC_ROOT = os.getenv("STATIC_ROOT", BASE_DIR / "static")
 
 MEDIA_ROOT = os.getenv("MEDIA_ROOT", BASE_DIR / "media")
 MEDIA_URL = os.getenv("MEDIA_URL", "/media/")
+
+SITE_URL = config("SITE_URL", default="http://localhost:4200")
