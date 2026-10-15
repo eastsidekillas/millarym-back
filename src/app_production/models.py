@@ -81,7 +81,7 @@ class Item(models.Model):
 
     fabric_arrived_at = models.DateField("ткань пришла", null=True, blank=True)
     sew_at = models.DateField("выдано в шитьё", null=True, blank=True)
-    cover_ready_at = models.DateField("чехол готов", null=True, blank=True)
+    cover_ready_at = models.DateField("отшит", null=True, blank=True)
     work_at = models.DateField("выдано в работу", null=True, blank=True)
 
     indiv = models.BooleanField("индивидуальный заказ", default=False)
@@ -183,7 +183,7 @@ class EventKind(models.TextChoices):
     RETURN_TO_WORK = "return", "Возврат в работу"
     FABRIC = "fabric", "Ткань пришла"
     SEW = "sew", "Выдано в шитьё"
-    COVER_READY = "cover_ready", "Чехол готов"
+    COVER_READY = "cover_ready", "Отшит"
     RESERVE = "reserve", "Резерв"
     EDIT = "edit", "Правка"
     TRASH = "trash", "Удаление в Корзину"
