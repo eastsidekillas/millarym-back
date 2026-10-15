@@ -38,7 +38,7 @@ def available_actions(user, item: Item) -> list[dict]:
         if not item.sew_at:
             actions.append(_action(user, "sew", "В шитьё", "marks"))
         if not item.cover_ready_at:
-            actions.append(_action(user, "cover_ready", "Чехол готов", "marks"))
+            actions.append(_action(user, "cover_ready", "Отшит", "marks"))
     if item.stage == Stage.FG:
         actions.append(_action(user, "ship", "Отгрузить", "ship"))
         actions.append(_action(user, "return_to_work", "↩ Вернуть в работу", "return_to_work"))

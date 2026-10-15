@@ -305,7 +305,7 @@ def mark_sew(user, item_id: int) -> Item:
 
 @transaction.atomic
 def mark_cover_ready(user, item_id: int) -> Item:
-    return _mark(user, item_id, Stage.CUT, "cover_ready_at", EventKind.COVER_READY, "Чехол готов")
+    return _mark(user, item_id, Stage.CUT, "cover_ready_at", EventKind.COVER_READY, "Отшит")
 
 
 @transaction.atomic
