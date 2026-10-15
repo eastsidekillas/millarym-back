@@ -1,12 +1,13 @@
 from datetime import datetime, time
 
 from django.db.models import Q
+from django.http import Http404
 from django.utils import timezone
 from django.utils.dateparse import parse_date
 from drf_spectacular.utils import OpenApiParameter, extend_schema, extend_schema_view, inline_serializer
 from rest_framework import mixins, serializers, status, viewsets
 from rest_framework.decorators import action
-from rest_framework.exceptions import ValidationError
+from rest_framework.exceptions import NotFound, ValidationError
 from rest_framework.response import Response
 
 from app_catalog.models import Deadlines
@@ -66,6 +67,16 @@ class ItemViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, viewsets.Gen
 
     def get_serializer_class(self):
         return ItemDetailSerializer if self.action != "list" else ItemSerializer
+
+    def get_object(self):
+        try:
+            return super().get_object()
+        except Http404:
+            purged = Item.all_objects.filter(pk=self.kwargs.get("pk"), purged_at__isnull=False).first()
+            if purged:
+                day = timezone.localtime(purged.purged_at).strftime("%d.%m.%y")
+                raise NotFound(f"Изделие {purged.number} удалено из Корзины окончательно {day}. История осталась в журнале.")
+            raise NotFound("Изделие не найдено.")
 
     def get_serializer_context(self):
         return {**super().get_serializer_context(), "deadlines": Deadlines.get(), "today": timezone.localdate()}

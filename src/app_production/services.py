@@ -441,3 +441,10 @@ def copy_item(user, item_id: int) -> Item:
     )
     log(source, user, EventKind.COPY, f"Скопировано в {item.number}", copy=item.number)
     return item
+
+
+def purge_trash(today=None) -> list[str]:
+    due = Item.objects.due_for_purge(today)
+    numbers = list(due.order_by("period", "seq").values_list("number", flat=True))
+    due.update(purged_at=timezone.now())
+    return numbers
