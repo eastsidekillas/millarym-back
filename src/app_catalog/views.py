@@ -36,12 +36,16 @@ class CatalogViewSet(
 
 
 class CategoryViewSet(CatalogViewSet):
-    queryset = Category.objects.all()
+    queryset = Category.objects.annotate(models_count=Count("models", filter=Q(models__active=True))).order_by(
+        "sort", "name"
+    )
     serializer_class = CategorySerializer
 
 
 class ProductModelViewSet(CatalogViewSet):
-    queryset = ProductModel.objects.select_related("category")
+    queryset = ProductModel.objects.select_related("category").annotate(
+        in_work=Count("items", filter=Q(items__trashed_at__isnull=True))
+    ).order_by("name")
     serializer_class = ProductModelSerializer
     filterset_fields = ["active", "category"]
     parser_classes = [JSONParser, MultiPartParser, FormParser]

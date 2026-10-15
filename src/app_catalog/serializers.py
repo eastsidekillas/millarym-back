@@ -47,17 +47,20 @@ class UniqueNameMixin:
 
 
 class CategorySerializer(UniqueNameMixin, serializers.ModelSerializer):
+    models_count = serializers.IntegerField(read_only=True, default=0)
+
     class Meta:
         model = Category
-        fields = ["id", "name", "sort", "active"]
+        fields = ["id", "name", "sort", "active", "models_count"]
 
 
 class ProductModelSerializer(PhotoSerializerMixin, UniqueNameMixin, serializers.ModelSerializer):
     category_name = serializers.CharField(source="category.name", read_only=True)
+    in_work = serializers.IntegerField(read_only=True, default=0)
 
     class Meta:
         model = ProductModel
-        fields = ["id", "name", "category", "category_name", "photo", "photo_thumb", "active"]
+        fields = ["id", "name", "category", "category_name", "photo", "photo_thumb", "active", "in_work"]
 
 
 class FabricSerializer(PhotoSerializerMixin, UniqueNameMixin, serializers.ModelSerializer):
@@ -84,3 +87,4 @@ class DeadlinesSerializer(serializers.ModelSerializer):
     class Meta:
         model = Deadlines
         fields = ["fabric_days", "cut_days", "output_days", "trash_days"]
+        extra_kwargs = {f: {"min_value": 1, "max_value": 365} for f in fields}
