@@ -112,14 +112,19 @@ class ListTest(ApiTest):
         rows = self.as_user(self.manager).get("/api/v1/items/", {"q": "ромашка"}).json()["results"]
         self.assertEqual([r["number"] for r in rows], [a.number])
 
-    def test_search_across_stages_without_trash(self):
+    def test_search_includes_trash_last(self):
         [a] = self.make(reserve="Петров")
         [b] = self.make()
         s.set_reserve(self.manager, b.pk, "Петров")
         [c] = self.make(reserve="Петров")
         s.trash(self.director, c.pk)
-        rows = self.as_user(self.manager).get("/api/v1/items/", {"q": "Петров"}).json()["results"]
-        self.assertEqual(sorted(r["number"] for r in rows), sorted([a.number, b.number]))
+        client = self.as_user(self.manager)
+        rows = client.get("/api/v1/items/", {"q": "Петров"}).json()["results"]
+        self.assertEqual(sorted(r["number"] for r in rows[:2]), sorted([a.number, b.number]))
+        self.assertEqual(rows[2]["number"], c.number)
+        trash = client.get("/api/v1/items/", {"q": "Петров", "stage": "trash"}).json()["results"]
+        self.assertEqual([r["number"] for r in trash], [c.number])
+        self.assertEqual(client.get("/api/v1/items/").json()["count"], 2)
 
     def test_list_query_count_is_flat(self):
         self.make(qty=5, fabrics=self.fabrics(leather=self.leather))
