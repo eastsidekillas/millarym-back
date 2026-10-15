@@ -1,0 +1,26 @@
+# Сервер с доменом: Caddy принимает 80/443, сам получает сертификат Let's Encrypt и передаёт запросы во frontend.
+# Запуск: docker compose -f docker-compose.yml -f deploy/compose.server.yml up -d --build
+services:
+  caddy:
+    image: caddy:2
+    environment:
+      DOMAIN: ${DOMAIN:?в .env нужен DOMAIN}
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    volumes:
+      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - frontend
+    restart: unless-stopped
+  frontend:
+    ports: !reset []
+  postgres:
+    ports: !reset []
+
+volumes:
+  caddy_data:
+  caddy_config:
