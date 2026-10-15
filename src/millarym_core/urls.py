@@ -4,7 +4,7 @@ from django.contrib import admin
 from django.urls import include, path
 from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView
 
-admin.site.site_header = "Миларум CRM — администрирование"
+admin.site.site_header = "Резервы и Заказы — администрирование"
 
 urlpatterns = [
     path("admin/", admin.site.urls),

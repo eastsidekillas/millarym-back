@@ -70,7 +70,7 @@ REST_FRAMEWORK = {
 }
 
 SPECTACULAR_SETTINGS = {
-    "TITLE": "Миларум CRM API",
+    "TITLE": "Резервы и Заказы — API",
     "VERSION": "1.0.0",
     "SERVE_INCLUDE_SCHEMA": False,
     "ENUM_NAME_OVERRIDES": {

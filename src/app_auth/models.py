@@ -47,8 +47,8 @@ class AccessRights(models.Model):
         managed = False
         default_permissions = ()
         permissions = list(RIGHTS.items())
-        verbose_name = "права CRM"
-        verbose_name_plural = "права CRM"
+        verbose_name = "права в системе"
+        verbose_name_plural = "права в системе"
 
 
 class AppliedRight(models.Model):

@@ -131,7 +131,7 @@ class Deadlines(models.Model):
 
     def clean(self):
         if self.pk not in (None, 1):
-            raise ValidationError("Настройки сроков одни на всю CRM.")
+            raise ValidationError("Настройки сроков одни на всю систему.")
 
     def save(self, *args, **kwargs):
         self.pk = 1
