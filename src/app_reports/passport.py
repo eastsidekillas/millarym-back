@@ -58,7 +58,7 @@ def render_passports(items: list[Item]) -> bytes:
     try:
         from weasyprint import HTML
     except OSError:
-        raise ActionError("Паспорт не собрать: на сервере не установлена библиотека Pango.")
+        raise ActionError("Паспорт не собрать: на сервере не найдена библиотека Pango (см. README, «Паспорт изделия»).")
     return HTML(string=html, base_url=str(ASSETS)).write_pdf()
 
 
