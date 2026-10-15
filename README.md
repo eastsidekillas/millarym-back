@@ -136,8 +136,10 @@ QR-код ведёт в карточку: адрес CRM берётся из `SI
 Комментарий в паспорт не входит и на отметку не влияет.
 
 Вёрстка — `app_reports/templates/reports/passport.html`, шрифт Golos Text лежит в `app_reports/assets/fonts`.
-PDF собирает WeasyPrint, ему нужна системная библиотека Pango: в Docker она ставится в образе,
-на Mac — `brew install pango`.
+PDF собирает WeasyPrint, ему нужна системная библиотека Pango. В Docker она ставится в образе,
+на Mac — `brew install pango`. На Apple Silicon Homebrew кладёт библиотеки в `/opt/homebrew/lib`;
+бэкенд сам ищет их там, переменные окружения не нужны. Без Pango остальная CRM работает,
+не собирается только паспорт.
 
 Права — коды в `app_auth/rights.py`, роли — группы Django.
 Матрица ролей задаётся в `ROLES`; при `migrate` группы создаются, но существующие
