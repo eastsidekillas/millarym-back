@@ -17,8 +17,12 @@ services:
     volumes:
       - media:/app/media
     depends_on:
-      - postgres
-      - migration
+      postgres:
+        condition: service_started
+      migration:
+        condition: service_completed_successfully
+      collectstatic:
+        condition: service_completed_successfully
     restart: unless-stopped
   collectstatic:
     build: .
@@ -27,7 +31,9 @@ services:
     environment: *common-variables
     volumes:
       - static:/app/static
-    command: ["django-admin", "collectstatic", "--no-input"]
+      - media:/app/media
+    # Папку фото первым может создать другой контейнер (от root) — отдаём её пользователю приложения.
+    command: ["sh", "-c", "chown -R appuser:appuser /app/media && django-admin collectstatic --no-input"]
   migration:
     build: .
     env_file: .env
