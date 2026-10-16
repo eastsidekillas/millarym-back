@@ -1,43 +1,14 @@
-import sys
-from pathlib import Path
-
 import segno
 from django.conf import settings
 from django.db import transaction
-from django.template.loader import render_to_string
 from django.utils import timezone
 
-from app_production.errors import ActionError
 from app_production.models import EventKind, FabricSlot, Item, ItemEvent
 
+from .pdf import render_pdf
 from .rows import fmt_date, item_fabrics
 
-ASSETS = Path(__file__).resolve().parent / "assets"
 MAX_ITEMS = 200
-
-
-def _find_homebrew_libs() -> None:
-    # macOS (SIP) стирает DYLD_FALLBACK_LIBRARY_PATH при запуске через poetry и IDE,
-    # а без неё dlopen не заглядывает в /opt/homebrew/lib, где Homebrew на Apple Silicon держит Pango.
-    lib = Path("/opt/homebrew/lib")
-    if sys.platform != "darwin" or not lib.is_dir():
-        return
-    import cffi
-
-    original = cffi.FFI.dlopen
-    if getattr(original, "homebrew", False):
-        return
-
-    def dlopen(self, name, flags=0):
-        try:
-            return original(self, name, flags)
-        except OSError:
-            if isinstance(name, str) and "/" not in name and (lib / name).exists():
-                return original(self, str(lib / name), flags)
-            raise
-
-    dlopen.homebrew = True
-    cffi.FFI.dlopen = dlopen
 
 
 def card_url(item: Item) -> str:
@@ -87,21 +58,10 @@ def passport_context(item: Item) -> dict:
 
 
 def render_passports(items: list[Item]) -> bytes:
-    html = render_to_string(
+    return render_pdf(
         "reports/passport.html",
-        {
-            "passports": [passport_context(item) for item in items],
-            "printed": fmt_date(timezone.now()),
-            "fonts": (ASSETS / "fonts").as_uri(),
-            "logo": (ASSETS / "logo.png").as_uri(),
-        },
+        {"passports": [passport_context(item) for item in items], "printed": fmt_date(timezone.now())},
     )
-    _find_homebrew_libs()
-    try:
-        from weasyprint import HTML
-    except OSError:
-        raise ActionError("Паспорт не собрать: на сервере не найдена библиотека Pango (см. README, «Паспорт изделия»).")
-    return HTML(string=html, base_url=str(ASSETS)).write_pdf()
 
 
 @transaction.atomic

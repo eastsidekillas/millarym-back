@@ -356,6 +356,51 @@ def single_item(item: Item) -> Result:
     )
 
 
+def claims_report(params: dict) -> Result:
+    from app_claims.models import Claim, DefectType
+    from app_claims.queries import filter_claims
+
+    start, end, _, _ = day_range(params)
+    qs = filter_claims(Claim.objects.select_related("manager"), {"from": params.get("from"), "to": params.get("to")})
+    order = {value: i for i, value in enumerate(DefectType.values)}
+    claims = sorted(qs, key=lambda c: (order.get(c.defect_type, len(order)), c.period, c.seq))
+    by_defect = Counter(c.get_defect_type_display() or "Не указан" for c in claims)
+    by_type = Counter(c.get_claim_type_display() for c in claims)
+    rows = []
+    for c in claims:
+        label = c.get_defect_type_display() or "Не указан"
+        rows.append(
+            Row(
+                c.pk,
+                c.number,
+                {
+                    "act": c.number,
+                    "date": fmt_date(c.act_date or c.created_at),
+                    "counterparty": c.counterparty,
+                    "item": c.product,
+                    "item_number": c.item_number,
+                    "type": c.get_claim_type_display(),
+                    "description": c.description,
+                },
+                group=f"{label}: {by_defect[label]} шт.",
+            )
+        )
+    summary = [
+        Summary("По виду дефекта", [(k, str(v)) for k, v in by_defect.most_common()]),
+        Summary("По типу претензии", [(k, str(v)) for k, v in by_type.most_common()]),
+    ]
+    return Result(
+        "Рекламации",
+        f"Заведены с {fmt_date(start)} по {fmt_date(end)}",
+        [Column("act", "№ акта", 9), Column("date", "Дата", 10), Column("counterparty", "Контрагент", 24),
+         Column("item", "Изделие", 30), Column("item_number", "№ изделия", 12), Column("type", "Тип претензии", 16),
+         Column("description", "Описание", 40)],
+        rows,
+        summary,
+        filename=f"Рекламации {fmt_date(start)}-{fmt_date(end)}",
+    )
+
+
 MODELS_PARAM = Param("models", "Модели", "models")
 REPORTS = [
     Report("free-stock", "Свободные остатки", "Все изделия без резерва на Крое, Складе чехлов, В работе и СГП, с фото тканей. Можно выбрать модели.", [MODELS_PARAM], free_stock),
@@ -364,6 +409,7 @@ REPORTS = [
     Report("orders-by-reserve", "Заказы по контрагенту", "Все изделия, у которых резерв содержит текст, включая отгруженные.", [Param("q", "Контрагент или часть резерва", "text", True, "Например, Фоминых")], orders_by_reserve),
     Report("orders-by-model", "Заказы по модели", "Изделия с резервом, в названии которых есть этот текст: «Бали» найдёт и «Бали (4 кат.)», и спецзаказы, вписанные вручную. Несколько — через запятую. Включая отгруженные.", [Param("q", "Название изделия или его часть", "text", True, "Например, Бали или Бали, Бостон")], orders_by_model),
     Report("no-fabric", "Не пришла ткань", "Все заказы на этапе «Заказы» без отметки «Ткань пришла»: сколько дней ждём.", [], no_fabric),
+    Report("claims", "Рекламации", "Рекламации, заведённые за период, по виду дефекта: сколько пришло с каждой проблемой, итог по типу претензии.", [Param("from", "С", "date", True), Param("to", "По", "date", True)], claims_report),
     Report("overdue", "Заказы с просроком", "Индивидуальные заказы с просрочкой по ткани, крою или выпуску.", [], overdue),
 ]
 BY_KIND = {r.kind: r for r in REPORTS}

@@ -55,7 +55,7 @@ class RightsMatrixTest(TestCase):
 
     def test_me_lists_rights(self):
         user = User.objects.get(username="plokhikh")
-        self.assertEqual(sorted(user.rights), sorted(["move_cover_work", "move_work_fg", "return_to_work"]))
+        self.assertEqual(sorted(user.rights), sorted(["claims", "move_cover_work", "move_work_fg", "return_to_work"]))
 
     def test_new_right_is_given_once_and_manual_removal_kept(self):
         from django.contrib.auth.models import Group, Permission
