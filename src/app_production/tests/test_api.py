@@ -90,7 +90,7 @@ class ListTest(ApiTest):
 
     def test_search(self):
         [a] = self.make(reserve="ООО Ромашка", extra="левый угол")
-        [b] = self.make(model=self.other_model, fabrics=self.fabrics(leather=self.leather))
+        [b] = self.make(model=self.other_model, fabrics=self.fabrics(comp2=self.leather))
         s.move(self.director, b.pk, Stage.WORK, team=self.team)
         client = self.as_user(self.manager)
 
@@ -127,12 +127,12 @@ class ListTest(ApiTest):
         self.assertEqual(client.get("/api/v1/items/").json()["count"], 2)
 
     def test_list_query_count_is_flat(self):
-        self.make(qty=5, fabrics=self.fabrics(leather=self.leather))
+        self.make(qty=5, fabrics=self.fabrics(comp2=self.leather))
         client = self.as_user(self.manager)
         client.get("/api/v1/items/")
         with CaptureQueriesContext(connection) as small:
             client.get("/api/v1/items/")
-        self.make(qty=20, fabrics=self.fabrics(leather=self.leather))
+        self.make(qty=20, fabrics=self.fabrics(comp2=self.leather))
         with CaptureQueriesContext(connection) as big:
             client.get("/api/v1/items/")
         self.assertEqual(len(small), len(big))

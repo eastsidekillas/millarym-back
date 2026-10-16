@@ -35,7 +35,6 @@ FABRICS = [
     "kioto beige", "kioto grafit 4k", "monako 5 4k", "ultra cashmere", "easton 02 4k", "ankona 9 4k",
     "savana grey 4f", "marvel grey kz", "vital java 4e", "debut 38 4k", "favorit indigo 4k", "teos milk 4k",
 ]
-LEATHER = ["экокожа белая", "экокожа венге", "экокожа графит"]
 TEAMS = [("Попов В.", "Попов В."), ("Хамитов Р.", "Хамитов Р."), ("Панасова О.", "Панасова О."), ("Дектеренко Е.", "Дектеренко Е.")]
 RESERVES = [
     "согл.", "частное лицо", "Мир мебели (Филина)", "ИП Фоминых", "ИП Бочкарева Е.М.", "ООО Статус",
@@ -78,8 +77,8 @@ class Command(BaseCommand):
         random.seed(seed)
         with transaction.atomic():
             users = self.users(password)
-            models, fabrics, leather, teams = self.catalog()
-            created = [self.item(users, models, fabrics, leather, teams) for _ in range(items)]
+            models, fabrics, teams = self.catalog()
+            created = [self.item(users, models, fabrics, teams) for _ in range(items)]
         stages = {}
         for item in Item.objects.filter(pk__in=[i.pk for i in created]):
             key = "trash" if item.trashed_at else item.stage
@@ -104,11 +103,10 @@ class Command(BaseCommand):
             ProductModel.objects.get_or_create(name=name, defaults={"category": cats[cat]})[0] for name, cat in MODELS
         ]
         fabrics = [Fabric.objects.get_or_create(name=name)[0] for name in FABRICS]
-        leather = [Fabric.objects.get_or_create(name=name)[0] for name in LEATHER]
         teams = [Team.objects.get_or_create(name=name, defaults={"foreman": f})[0] for name, f in TEAMS]
-        return models, fabrics, leather, teams
+        return models, fabrics, teams
 
-    def item(self, u, models, fabrics, leather, teams) -> Item:
+    def item(self, u, models, fabrics, teams) -> Item:
         managers = [u["okisheva"], u["postnikova"]]
         cutter, master, store, boss = u["kotomtseva"], u["plokhikh"], u["voznesenskaya"], u["yuldasheva"]
         real_now = timezone.now()
@@ -123,8 +121,6 @@ class Command(BaseCommand):
             fab.append({"slot": "comp1", "fabric": random.choice(fabrics), "meters": random.choice([2, 3, 4.5])})
         if random.random() < 0.15:
             fab.append({"slot": "comp2", "fabric": random.choice(fabrics), "meters": 2})
-        if random.random() < 0.3:
-            fab.append({"slot": "leather", "fabric": random.choice(leather), "meters": random.choice([1.5, 2, 3])})
         indiv = bool(reserve) and random.random() < 0.35
 
         custom = random.random() < 0.04

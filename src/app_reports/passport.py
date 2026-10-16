@@ -28,7 +28,6 @@ PASSPORT_SLOTS = [
     (FabricSlot.COMP1, "Ткань компаньон 1"),
     (FabricSlot.COMP2, "Ткань компаньон 2"),
 ]
-PASSPORT_SLOT_CODES = {slot for slot, _ in PASSPORT_SLOTS}
 
 
 def fabric_rows(item: Item) -> list[dict]:
@@ -52,9 +51,7 @@ def passport_context(item: Item) -> dict:
         "created": fmt_date(item.created_at),
         "manager": item.manager.short_name if item.manager_id else "",
         "fabrics": fabric_rows(item),
-        "fabrics_short": "; ".join(
-            f"{f.get_slot_display()}: {f.fabric.name}" for f in item_fabrics(item) if f.slot in PASSPORT_SLOT_CODES
-        ),
+        "fabrics_short": "; ".join(f"{f.get_slot_display()}: {f.fabric.name}" for f in item_fabrics(item)),
         "qr": qr_svg(card_url(item)),
     }
 
