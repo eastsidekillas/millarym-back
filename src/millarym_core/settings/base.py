@@ -33,6 +33,7 @@ INSTALLED_APPS = [
     "app_catalog",
     "app_production",
     "app_reports",
+    "app_claims",
 ]
 
 MIDDLEWARE = [
@@ -169,5 +170,9 @@ LOGGING = {
     "formatters": {"plain": {"format": "{asctime} {levelname} {name}: {message}", "style": "{"}},
     "handlers": {"console": {"class": "logging.StreamHandler", "formatter": "plain"}},
     "root": {"handlers": ["console"], "level": "WARNING"},
-    "loggers": {"django": {"handlers": ["console"], "level": "INFO", "propagate": False}},
+    "loggers": {
+        "django": {"handlers": ["console"], "level": "INFO", "propagate": False},
+        "weasyprint": {"level": "ERROR"},
+        "fontTools": {"level": "ERROR"},
+    },
 }

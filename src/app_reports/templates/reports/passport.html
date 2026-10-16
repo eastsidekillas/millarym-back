@@ -8,130 +8,113 @@
 @font-face { font-family: "Golos Text"; font-weight: 600; src: url("{{ fonts }}/golos-text-600.woff"); }
 @font-face { font-family: "Golos Text"; font-weight: 700; src: url("{{ fonts }}/golos-text-700.woff"); }
 
-@page { size: A4; margin: 12mm 14mm; }
+@page { size: A4; margin: 7mm 9mm; }
 * { box-sizing: border-box; }
-body { margin: 0; font-family: "Golos Text", sans-serif; font-size: 10.5pt; line-height: 1.35; color: #000; }
-.page { position: relative; height: 272mm; page-break-after: always; }
-.page:last-child { page-break-after: auto; }
+body { margin: 0; font-family: "Golos Text", sans-serif; font-size: 8.6pt; line-height: 1.25; color: #000; }
+.sheet { page-break-after: always; }
+.sheet:last-child { page-break-after: auto; }
 table { border-collapse: collapse; width: 100%; }
-td, th { padding: 0; vertical-align: top; text-align: left; }
+td { padding: 0; vertical-align: middle; }
+
+.part { height: 86mm; padding-top: 1.5mm; }
+.part + .part { border-top: 0.6pt dashed #000; padding-top: 2.5mm; }
 
 .head td { vertical-align: middle; }
-.logo { width: 22mm; }
-.firm { padding-left: 4mm; font-size: 9pt; color: #333; }
-.firm b { display: block; font-size: 11pt; color: #000; }
-.printed { text-align: right; font-size: 8pt; color: #666; }
-.rule { border-top: 0.6pt solid #000; margin: 5mm 0 6mm; }
+.head .logo { width: 17mm; }
+.head .logo img { width: 15mm; }
+.head .firm { font-size: 7.4pt; color: #222; line-height: 1.25; }
+.head .firm b { font-size: 8.4pt; color: #000; }
+.head .qr { width: 15mm; text-align: right; }
+.head .qr img { width: 13mm; height: 13mm; }
 
-.kind { font-size: 10pt; color: #333; }
-h1 { margin: 0; font-size: 15pt; font-weight: 600; }
-.number { margin-top: 1mm; font-size: 46pt; font-weight: 700; line-height: 1; font-variant-numeric: tabular-nums; }
-.qr { width: 34mm; text-align: right; }
-.qr img { width: 34mm; height: 34mm; }
-.qr small { display: block; margin-top: 1mm; font-size: 7.5pt; color: #666; text-align: right; }
+.grid { margin-top: 1.5mm; table-layout: fixed; }
+.grid td { border: 0.6pt solid #000; padding: 0.9mm 1.6mm; height: 5.6mm; }
+.grid .k { width: 32mm; }
+.grid .order { font-size: 17pt; font-weight: 700; text-align: center; }
+.grid .title { font-size: 10.5pt; font-weight: 600; text-align: center; line-height: 1.2; }
+.grid .who { font-size: 10pt; font-weight: 600; text-align: center; line-height: 1.2; }
+.grid .date { font-size: 10.5pt; font-weight: 600; text-align: center; }
+.grid .num { font-size: 21pt; font-weight: 700; text-align: center; font-variant-numeric: tabular-nums; letter-spacing: 0.3pt; }
+.grid .mgr { font-weight: 600; text-align: center; font-size: 9.5pt; }
+.grid .m { width: 34mm; white-space: nowrap; }
+.grid .hand { color: #000; }
 
-.facts { margin-top: 7mm; }
-.facts th { width: 40mm; padding: 2mm 0; font-weight: 400; color: #444; border-bottom: 0.4pt solid #bbb; }
-.facts td { padding: 2mm 0; border-bottom: 0.4pt solid #bbb; }
-.facts .title { font-size: 13pt; font-weight: 600; }
-.indiv { font-weight: 600; }
+.guarantee { margin-top: 0.8mm; font-size: 6.6pt; text-align: center; color: #222; }
 
-h2 { margin: 7mm 0 2mm; font-size: 11pt; font-weight: 600; }
-.fabrics th { padding: 1.5mm 2mm; font-weight: 400; font-size: 9pt; color: #444; border-bottom: 0.6pt solid #000; }
-.fabrics td { padding: 2mm; border-bottom: 0.4pt solid #bbb; }
-.fabrics .m { text-align: right; width: 28mm; font-variant-numeric: tabular-nums; }
-.fabrics .slot { width: 36mm; color: #444; }
-.empty { color: #666; }
-
-.hand { margin-top: 9mm; }
-.hand td { padding-right: 6mm; white-space: nowrap; }
-.hand td:last-child { padding-right: 0; }
-.line { display: inline-block; border-bottom: 0.6pt solid #000; height: 5mm; vertical-align: bottom; }
-.hand-row + .hand-row td { padding-top: 8mm; }
-
-.guarantee { margin-top: 9mm; font-size: 9pt; color: #333; }
-
-.label { position: absolute; left: 0; right: 0; bottom: 0; padding-top: 5mm; border-top: 0.8pt dashed #000; }
-.cut { position: absolute; top: -2.2mm; left: 50%; margin-left: -14mm; width: 28mm; background: #fff; text-align: center; font-size: 7pt; color: #666; }
-.label .number { font-size: 30pt; }
-.label .what { padding-left: 6mm; }
-.label .what b { display: block; font-size: 12pt; }
-.label .what span { display: block; margin-top: 1mm; font-size: 9pt; color: #333; }
-.label .qr, .label .qr img { width: 24mm; }
-.label .qr img { height: 24mm; }
+.label { border-top: 0.6pt dashed #000; padding-top: 2mm; }
+.label td { vertical-align: top; font-size: 8.4pt; }
+.label .n { width: 32mm; font-size: 15pt; font-weight: 700; }
+.label .t b { display: block; font-size: 9.5pt; }
+.label .qr { width: 14mm; text-align: right; }
+.label .qr img { width: 13mm; height: 13mm; }
 </style>
 </head>
 <body>
 {% for p in passports %}
-<section class="page">
-  <table class="head">
-    <tr>
-      <td class="logo"><img src="{{ logo }}" alt="" style="width: 22mm"></td>
-      <td class="firm">
-        <b>Фабрика домашней мебели «Миларум»</b>
-        Свердловская обл., г. Лесной, Хвойный проезд, д. 18<br>
-        Отдел продаж: 8 (800) 511-15-10
-      </td>
-      <td class="printed">Напечатан {{ printed }}</td>
-    </tr>
-  </table>
-  <div class="rule"></div>
-
-  <table>
-    <tr>
-      <td>
-        <div class="kind">{% if p.for_order %}Изделие под заказ{% else %}Изделие на склад{% endif %}</div>
-        <h1>Паспорт изделия</h1>
-        <div class="number">№ {{ p.number }}</div>
-      </td>
-      <td class="qr"><img src="{{ p.qr }}" alt=""><small>Карточка изделия</small></td>
-    </tr>
-  </table>
-
-  <table class="facts">
-    <tr><th>Изделие</th><td><span class="title">{{ p.title }}</span>{% if p.extra %}<br>{{ p.extra }}{% endif %}</td></tr>
-    <tr><th>Резерв</th><td>{{ p.reserve }}</td></tr>
-    {% if p.indiv %}<tr><th>Индивидуальный</th><td class="indiv">ДА{% if p.indiv_note %} — {{ p.indiv_note }}{% endif %}</td></tr>{% endif %}
-    <tr><th>Заведено</th><td>{{ p.created }}{% if p.manager %}, {{ p.manager }}{% endif %}</td></tr>
-  </table>
-
-  <h2>Ткани</h2>
-  <table class="fabrics">
-    <tr><th class="slot">Место</th><th>Ткань</th><th class="m">Метраж</th></tr>
-    {% for f in p.fabrics %}
-    <tr><td class="slot">{{ f.slot }}</td><td>{{ f.name }}</td><td class="m">{{ f.meters }}</td></tr>
-    {% empty %}
-    <tr><td colspan="3" class="empty">Ткани не указаны</td></tr>
-    {% endfor %}
-  </table>
-
-  <table class="hand">
-    <tr class="hand-row">
-      <td>Дата выпуска <span class="line" style="width: 32mm"></span></td>
-      <td>Швея № <span class="line" style="width: 22mm"></span></td>
-      <td>Стол № <span class="line" style="width: 22mm"></span></td>
-    </tr>
-    <tr class="hand-row">
-      <td colspan="3">Мастер-контролёр ОТК <span class="line" style="width: 60mm"></span> <span class="line" style="width: 40mm"></span></td>
-    </tr>
-  </table>
-
-  <p class="guarantee">Изделие изготовлено по ГОСТ 19917-2014. Гарантийный срок — 18 месяцев, срок службы — 10 лет.</p>
-
-  <div class="label">
-    <span class="cut">линия отреза</span>
-    <table>
+<section class="sheet">
+  {% for copy in "123" %}
+  <div class="part">
+    <table class="head">
       <tr>
-        <td style="width: 1%; white-space: nowrap"><div class="number">{{ p.number }}</div></td>
-        <td class="what">
-          <b>{{ p.title }}{% if p.extra %}, {{ p.extra }}{% endif %}</b>
-          <span>{% for f in p.fabrics %}{{ f.slot }}: {{ f.name }}{% if not forloop.last %}; {% endif %}{% endfor %}</span>
-          {% if p.reserve %}<span>{{ p.reserve }}</span>{% endif %}
+        <td class="logo"><img src="{{ logo }}" alt=""></td>
+        <td class="firm">
+          <b>Мебельная фабрика «Миларум»</b><br>
+          Россия, 624205, Свердловская обл., г. Лесной, Хвойный проезд, д. 18<br>
+          Отдел продаж: 8 (800) 511-15-10
         </td>
         <td class="qr"><img src="{{ p.qr }}" alt=""></td>
       </tr>
     </table>
+
+    <table class="grid">
+      <colgroup><col style="width: 32mm"><col><col style="width: 34mm"><col style="width: 38mm"></colgroup>
+      <tr>
+        <td class="order">ЗАКАЗ</td>
+        <td class="title">{{ p.title }}{% if p.extra %} ({{ p.extra }}){% endif %}</td>
+        <td class="who">{{ p.reserve }}</td>
+        <td class="date">{{ p.created }}</td>
+      </tr>
+      <tr>
+        <td>Номер заказа</td>
+        <td class="num">{{ p.number }}</td>
+        <td>Менеджер:</td>
+        <td class="mgr">{{ p.manager }}</td>
+      </tr>
+      {% for f in p.fabrics %}
+      <tr>
+        <td>{{ f.label }}</td>
+        <td>{{ f.name }}</td>
+        <td colspan="2" class="m">Кол-во метров: {% if f.meters %}<b>{{ f.meters }}</b>{% else %}<span class="hand">__________</span>{% endif %} м</td>
+      </tr>
+      {% endfor %}
+      <tr>
+        <td>Дополнительно</td>
+        <td colspan="3">{% if p.indiv %}Индивидуальный: ДА{% if p.indiv_note %} — {{ p.indiv_note }}{% endif %}{% endif %}</td>
+      </tr>
+      <tr>
+        <td>Дата выпуска</td>
+        <td></td>
+        <td>Швея №</td>
+        <td></td>
+      </tr>
+      <tr>
+        <td>ОТК</td>
+        <td></td>
+        <td>Стол №</td>
+        <td></td>
+      </tr>
+    </table>
+    <div class="guarantee">Гарантийный срок эксплуатации — 18 месяцев. Срок службы изделия — 10 лет. По истечении срока службы изделие эксплуатации не подлежит. ГОСТ 19917-2014</div>
   </div>
+  {% endfor %}
+
+  <table class="label">
+    <tr>
+      <td class="n">{{ p.number }}</td>
+      <td class="t"><b>{{ p.title }}{% if p.extra %} ({{ p.extra }}){% endif %}</b>{{ p.fabrics_short }}{% if p.reserve %}<br>{{ p.reserve }}{% endif %}</td>
+      <td class="qr"><img src="{{ p.qr }}" alt=""></td>
+    </tr>
+  </table>
 </section>
 {% endfor %}
 </body>
