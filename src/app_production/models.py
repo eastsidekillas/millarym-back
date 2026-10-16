@@ -28,7 +28,6 @@ class FabricSlot(models.TextChoices):
     MAIN = "main", "Основа"
     COMP1 = "comp1", "Компаньон 1"
     COMP2 = "comp2", "Компаньон 2"
-    LEATHER = "leather", "Кожзам"
 
 
 class NumberSequence(models.Model):

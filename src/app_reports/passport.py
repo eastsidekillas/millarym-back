@@ -27,7 +27,6 @@ PASSPORT_SLOTS = [
     (FabricSlot.MAIN, "Ткань основа"),
     (FabricSlot.COMP1, "Ткань компаньон 1"),
     (FabricSlot.COMP2, "Ткань компаньон 2"),
-    (FabricSlot.LEATHER, "Кожзам"),
 ]
 
 

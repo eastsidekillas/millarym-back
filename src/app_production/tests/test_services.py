@@ -70,7 +70,7 @@ class CreateTest(ServiceTest):
         self.leather.active = False
         self.leather.save()
         with self.assertRaisesMessage(ActionError, "скрыта"):
-            self.create(fabrics=self.fabrics(leather=self.leather))
+            self.create(fabrics=self.fabrics(comp2=self.leather))
         self.assertFalse(Item.objects.exists())
 
     def test_inactive_model(self):
@@ -272,7 +272,7 @@ class EditCopyTest(ServiceTest):
         s.move(self.director, item.pk, Stage.WORK, team=self.team)
         item = s.update_item(
             self.cutter, item.pk, model=self.other_model, extra="правый угол, накладки венге",
-            fabrics=self.fabrics(leather=self.leather),
+            fabrics=self.fabrics(comp2=self.leather),
         )
         self.assertEqual((item.stage, item.title, item.extra), (Stage.WORK, "Флоренция", "правый угол, накладки венге"))
         self.assertEqual(item.fabrics.count(), 2)
@@ -308,10 +308,10 @@ class EditCopyTest(ServiceTest):
 
     def test_fabrics_replace(self):
         [item] = self.create()
-        s.update_item(self.manager, item.pk, fabrics=self.fabrics(leather=self.leather))
+        s.update_item(self.manager, item.pk, fabrics=self.fabrics(comp2=self.leather))
         self.assertEqual(item.fabrics.count(), 2)
         last = item.events.order_by("-id").first()
-        self.assertEqual(last.text, "Ткани: Основа: Велюр 03 12 м → Основа: Велюр 03 12 м; Кожзам: Экокожа белая")
+        self.assertEqual(last.text, "Ткани: Основа: Велюр 03 12 м → Основа: Велюр 03 12 м; Компаньон 2: Экокожа белая")
 
     def test_meters_text(self):
         self.assertEqual(s.meters_text(12.5), "12,5 м")
@@ -325,7 +325,7 @@ class EditCopyTest(ServiceTest):
             s.update_item(self.manager, item.pk, stage=Stage.FG)
 
     def test_copy(self):
-        [item] = self.create(reserve="ИП Сидоров", extra="левый угол", fabrics=self.fabrics(leather=self.leather))
+        [item] = self.create(reserve="ИП Сидоров", extra="левый угол", fabrics=self.fabrics(comp2=self.leather))
         copy = s.copy_item(self.manager, item.pk)
         self.assertNotEqual(copy.number, item.number)
         self.assertEqual((copy.stage, copy.reserve, copy.extra), (Stage.ORDERS, "ИП Сидоров", "левый угол"))
