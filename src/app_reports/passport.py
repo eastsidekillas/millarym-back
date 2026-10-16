@@ -8,7 +8,7 @@ from django.template.loader import render_to_string
 from django.utils import timezone
 
 from app_production.errors import ActionError
-from app_production.models import EventKind, Item, ItemEvent
+from app_production.models import EventKind, FabricSlot, Item, ItemEvent
 
 from .rows import fmt_date, item_fabrics
 
@@ -49,7 +49,24 @@ def qr_svg(url: str) -> str:
 
 
 def meters(value) -> str:
-    return f"{value.normalize():f}".replace(".", ",") + " м" if value is not None else ""
+    return f"{value.normalize():f}".replace(".", ",") if value is not None else ""
+
+
+PASSPORT_SLOTS = [
+    (FabricSlot.MAIN, "Ткань основа"),
+    (FabricSlot.COMP1, "Ткань компаньон 1"),
+    (FabricSlot.COMP2, "Ткань компаньон 2"),
+    (FabricSlot.LEATHER, "Кожзам"),
+]
+
+
+def fabric_rows(item: Item) -> list[dict]:
+    by_slot = {f.slot: f for f in item.fabrics.all()}
+    rows = []
+    for slot, label in PASSPORT_SLOTS:
+        f = by_slot.get(slot)
+        rows.append({"label": label, "name": f.fabric.name if f else "", "meters": meters(f.meters) if f else ""})
+    return rows
 
 
 def passport_context(item: Item) -> dict:
@@ -63,9 +80,8 @@ def passport_context(item: Item) -> dict:
         "indiv_note": item.indiv_note,
         "created": fmt_date(item.created_at),
         "manager": item.manager.short_name if item.manager_id else "",
-        "fabrics": [
-            {"slot": f.get_slot_display(), "name": f.fabric.name, "meters": meters(f.meters)} for f in item_fabrics(item)
-        ],
+        "fabrics": fabric_rows(item),
+        "fabrics_short": "; ".join(f"{f.get_slot_display()}: {f.fabric.name}" for f in item_fabrics(item)),
         "qr": qr_svg(card_url(item)),
     }
 
