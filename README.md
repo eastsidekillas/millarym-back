@@ -103,6 +103,11 @@ docker compose run --rm app django-admin create_users
 Уже заведённые модели и повторы в файле пропускаются; `--create-categories` заводит новые категории,
 `--category «Кресла»` — одна категория на весь файл, `--update-category` — поправить категорию у существующих.
 
+Фото тканей пачкой: `python manage.py import_fabrics ткани.zip --dry-run` (zip или папка) — название ткани
+берётся из имени файла (`Arben_ultra_grafit.jpg` → «Arben ultra grafit»), регистр не важен; новых тканей нет — заводятся
+(`--no-create` — только фото к уже заведённым), фото у ткани уже есть — не трогаем (`--replace` — заменить).
+На сервере: `bash deploy/import-fabrics.sh /root/ткани.zip --dry-run`, затем без `--dry-run`.
+
 Фото загружаются `multipart/form-data` (поле `photo`, до 15 МБ), сервер сохраняет WebP до 1600 px
 и превью 300 px; `photo: null` убирает фото. Старые файлы удаляются при замене.
 
