@@ -58,7 +58,7 @@ h2 { margin: 6mm 0 1.5mm; font-size: 10.5pt; font-weight: 600; }
   <tr><td class="k">Данные с упаковки</td><td class="v">{{ claim.package_data }}</td></tr>
   <tr><td class="k">№ ТН и дата отгрузки</td><td class="v">{{ claim.waybill }}</td></tr>
   <tr><td class="k">Наименование отправителя</td><td class="v">{% if claim %}{{ claim.get_sender_display }}{% else %}ИП Юлдашева О.А. / ИП Окулова В.А. / Фабрика мебели{% endif %}</td></tr>
-  <tr><td class="k">Цена по накладной</td><td class="v">{% if claim.invoice_price is not None %}{{ claim.invoice_price|floatformat:"-2" }} ₽{% endif %}</td></tr>
+  <tr><td class="k">Цена по накладной</td><td class="v">{% if claim.invoice_price is not None %}{{ claim.invoice_price|floatformat:"-2g" }} ₽{% endif %}</td></tr>
   <tr><td class="k">Дата отгрузки конечному покупателю</td><td class="v">{{ claim.customer_shipped_at|date:"d.m.Y" }}</td></tr>
   <tr><td class="k">Требования покупателя</td><td class="v{% if not claim %} tall{% endif %}">{{ claim.demands }}</td></tr>
 </table>
