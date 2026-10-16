@@ -4,6 +4,7 @@ from io import BytesIO
 
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import TestCase, override_settings
+from openpyxl import load_workbook
 from PIL import Image
 from rest_framework.test import APIClient
 
@@ -77,7 +78,11 @@ class ClaimsTest(Fixtures, TestCase):
         self.assertEqual(len(client.get(f"/api/v1/claims/{claim['id']}/").json()["photos"]), 1)
         pdf = client.get(f"/api/v1/claims/{claim['id']}/pdf/")
         self.assertTrue(pdf.content.startswith(b"%PDF"))
-        self.assertTrue(client.get("/api/v1/claims/blank/").content.startswith(b"%PDF"))
+        blank = client.get("/api/v1/claims/blank/")
+        sheet = load_workbook(BytesIO(blank.content)).active
+        self.assertEqual(sheet["A6"].value, "АКТ-ПРЕТЕНЗИЯ")
+        self.assertEqual(sheet["A13"].value, "Описание претензии")
+        self.assertIn("ИП Окулова В.А.", sheet.data_validations.dataValidation[0].formula1)
         self.assertEqual(client.delete(f"/api/v1/claims/{claim['id']}/photos/{photo.json()['id']}/").status_code, 204)
         self.assertEqual(client.delete(f"/api/v1/claims/{claim['id']}/").status_code, 405)
         self.assertEqual(Claim.objects.count(), 1)

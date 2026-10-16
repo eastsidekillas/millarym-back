@@ -15,6 +15,7 @@ from rest_framework.response import Response
 from app_auth.permissions import ReadOrRight
 from app_reports.pdf import render_pdf
 
+from .blank import build_blank
 from .models import Claim, ClaimPhoto
 from .queries import filter_claims, stats
 from .serializers import CHOICES, ClaimListSerializer, ClaimPhotoSerializer, ClaimSerializer
@@ -27,6 +28,8 @@ FILTERS = [
     OpenApiParameter("from", str, description="ГГГГ-ММ-ДД"),
     OpenApiParameter("to", str, description="ГГГГ-ММ-ДД"),
 ]
+
+XLSX = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
 
 
 def pdf_response(content: bytes, name: str) -> HttpResponse:
@@ -110,8 +113,11 @@ class ClaimViewSet(
         content = render_pdf("claims/act.html", {"claim": claim, "photos": photos})
         return pdf_response(content, f"Акт-претензия {claim.number.replace('/', '-')}.pdf")
 
-    @extend_schema(responses={(200, "application/pdf"): OpenApiTypes.BINARY})
+    @extend_schema(responses={(200, XLSX): OpenApiTypes.BINARY})
     @action(detail=False)
     def blank(self, request):
-        content = render_pdf("claims/act.html", {"claim": None, "photos": []})
-        return pdf_response(content, "Акт-претензия, бланк.pdf")
+        response = HttpResponse(build_blank(), content_type=XLSX)
+        name = quote("Акт-претензия, бланк для клиента.xlsx")
+        response["Content-Disposition"] = f"attachment; filename=claim-blank.xlsx; filename*=UTF-8''{name}"
+        response["Access-Control-Expose-Headers"] = "Content-Disposition"
+        return response

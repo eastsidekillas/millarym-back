@@ -163,7 +163,7 @@ docker compose run --rm app django-admin create_users
 | `GET /api/v1/claims/stats/` | сколько по виду дефекта и типу претензии (те же фильтры) |
 | `GET /api/v1/claims/choices/` | списки: тип претензии, вид дефекта, отправитель |
 | `GET /api/v1/claims/{id}/pdf/` | акт для покупателя (без финансовой части) |
-| `GET /api/v1/claims/blank/` | пустой бланк для партнёра |
+| `GET /api/v1/claims/blank/` | пустой бланк для клиента в Excel |
 
 Отчёт «Рекламации» за период (группы по виду дефекта, итог по типу претензии, Excel) — `GET /api/v1/reports/claims/`.
 
