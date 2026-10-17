@@ -98,7 +98,6 @@ class Item(models.Model):
     purged_at = models.DateTimeField("удалено из Корзины окончательно", null=True, blank=True, editable=False)
 
     passport_printed_at = models.DateTimeField("паспорт напечатан", null=True, blank=True)
-    passport_changed_at = models.DateTimeField("изменено то, что есть в паспорте", null=True, blank=True)
 
     objects = ItemManager()
     all_objects = models.Manager()
@@ -133,11 +132,6 @@ class Item(models.Model):
     @property
     def in_trash(self) -> bool:
         return self.trashed_at is not None
-
-    @property
-    def passport_outdated(self) -> bool:
-        printed, changed = self.passport_printed_at, self.passport_changed_at
-        return bool(printed and changed and changed > printed)
 
     @property
     def is_free(self) -> bool:

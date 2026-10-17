@@ -43,11 +43,6 @@ def require(user, code: str) -> None:
         raise NoRight(no_right_message(code))
 
 
-def passport_changed(item: Item) -> None:
-    item.passport_changed_at = timezone.now()
-    Item.objects.filter(pk=item.pk).update(passport_changed_at=item.passport_changed_at)
-
-
 def stage_label(stage: str) -> str:
     return Stage(stage).label
 
@@ -326,7 +321,6 @@ def set_reserve(user, item_id: int, reserve: str) -> Item:
         text = f"Резерв: «{old}» → «{new}»"
     item.reserve = new
     item.save()
-    passport_changed(item)
     log(item, user, EventKind.RESERVE, text, old=old, new=new)
     return item
 
@@ -361,7 +355,6 @@ def update_item(
         raise ActionError(f"Нельзя менять: {', '.join(sorted(unknown))}.")
     item = lock(item_id)
     not_in_trash(item)
-    on_passport = False
 
     if model is not ... or custom_name is not None:
         new_model = item.model if model is ... else model
@@ -373,7 +366,6 @@ def update_item(
             item.save()
             title = item.title if item.model_id else f"{item.title} (вне справочника)"
             log(item, user, EventKind.EDIT, f"Название: {old[2]} → {title}", field="name", old=old[2], new=item.title)
-            on_passport = True
 
     for key in ("extra", "comment", "indiv_note"):
         if key in fields:
@@ -394,7 +386,6 @@ def update_item(
 
     if changes:
         item.save()
-        on_passport = on_passport or any(f != "comment" for f, _, _ in changes)
         for field, old, value in changes:
             log(
                 item,
@@ -416,9 +407,6 @@ def update_item(
                 [ItemFabric(item=item, slot=f["slot"], fabric=f["fabric"], meters=f.get("meters")) for f in fabrics]
             )
             log(item, user, EventKind.EDIT, f"Ткани: {before} → {after}", field="fabrics", old=before, new=after)
-            on_passport = True
-    if on_passport:
-        passport_changed(item)
     return item
 
 
