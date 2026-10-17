@@ -205,9 +205,7 @@ docker compose start app scheduler
 
 `GET /api/v1/passports/?ids=1,2,3` — PDF (A4, на изделие лист с отрывным ярлыком внизу), до 200 изделий за раз.
 QR-код ведёт в карточку: адрес CRM берётся из `SITE_URL` в `.env`. Открытие паспорта отмечает изделие как напечатанное
-(`passport_printed_at`, событие в истории). Если потом поменять то, что есть в паспорте (название, комплектацию,
-ткани, индивидуальный, резерв), у изделия появляется `passport_outdated: true` — паспорт нужно перепечатать.
-Комментарий в паспорт не входит и на отметку не влияет.
+(`passport_printed_at`, событие в истории).
 
 Вёрстка — `app_reports/templates/reports/passport.html`, шрифт Golos Text лежит в `app_reports/assets/fonts`.
 PDF собирает WeasyPrint, ему нужна системная библиотека Pango. В Docker она ставится в образе,
