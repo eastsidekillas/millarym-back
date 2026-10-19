@@ -290,3 +290,27 @@ class EventsApiTest(ApiTest):
         rows = self.as_user(self.master).get("/api/v1/users/").json()
         self.assertEqual(len(rows), 7)
         self.assertEqual(rows[0]["short_name"], "Вознесенская Н.")
+
+
+class CancelOrderTest(ApiTest):
+    def test_cancel_only_on_orders(self):
+        [order] = self.make(reserve="ИП Петров")
+        [stock] = self.make()
+        client = self.as_user(self.manager)
+        actions = {a["code"]: a for a in client.get(f"/api/v1/items/{order.pk}/").json()["actions"]}
+        self.assertTrue(actions["cancel"]["allowed"])
+        self.assertNotIn("cancel", {a["code"] for a in client.get(f"/api/v1/items/{stock.pk}/").json()["actions"]})
+
+        r = client.post(f"/api/v1/items/{stock.pk}/cancel/")
+        self.assertEqual(r.status_code, 400)
+        self.assertIn("уберите резерв", r.json()["detail"])
+        self.assertEqual(self.as_user(self.master).post(f"/api/v1/items/{order.pk}/cancel/").status_code, 403)
+
+        data = client.post(f"/api/v1/items/{order.pk}/cancel/").json()
+        self.assertEqual((data["trash_reason"], data["trash_reason_label"]), ("cancelled", "Заказ снят"))
+        self.assertEqual(data["events"][0]["text"], "Заказ снят (резерв был «ИП Петров»)")
+        trash = client.get("/api/v1/items/?stage=trash").json()["results"]
+        self.assertEqual([i["trash_reason_label"] for i in trash], ["Заказ снят"])
+        restored = self.as_user(self.director).post(f"/api/v1/items/{order.pk}/restore/").json()
+        self.assertEqual((restored["stage"], restored["reserve"]), ("orders", "ИП Петров"))
+        self.assertIn("заказ снят", restored["events"][0]["text"])

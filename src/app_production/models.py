@@ -22,6 +22,7 @@ STAGE_ORDER = [Stage.ORDERS, Stage.CUT, Stage.COVER, Stage.WORK, Stage.FG]
 class TrashReason(models.TextChoices):
     SHIPPED = "shipped", "Отгружено"
     DELETED = "deleted", "Удалено"
+    CANCELLED = "cancelled", "Заказ снят"
 
 
 class FabricSlot(models.TextChoices):
@@ -40,6 +41,10 @@ class NumberSequence(models.Model):
 
     def __str__(self):
         return f"{self.period}: {self.last_value}"
+
+
+# изделия из старых систем: номер старый («114542», «9578/ЗАК»), год не указан
+LEGACY_PERIOD = 0
 
 
 def format_number(period: int, seq: int) -> str:
@@ -122,7 +127,8 @@ class Item(models.Model):
         return self.number
 
     def save(self, *args, **kwargs):
-        self.number = format_number(self.period, self.seq)
+        if self.period != LEGACY_PERIOD:
+            self.number = format_number(self.period, self.seq)
         super().save(*args, **kwargs)
 
     @property

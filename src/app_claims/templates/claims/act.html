@@ -59,6 +59,7 @@ h2 { margin: 6mm 0 1.5mm; font-size: 10.5pt; font-weight: 600; }
 <h2>Заключение завода-изготовителя</h2>
 <table class="rows">
   <tr><td class="k">Тип претензии</td><td class="v">{{ claim.get_claim_type_display }}</td></tr>
+  {% if claim.closed_at %}<tr><td class="k">Состояние</td><td class="v">{{ claim.get_state_display }} {{ claim.closed_at|date:"d.m.Y" }}{% if claim.close_note %} — {{ claim.close_note }}{% endif %}</td></tr>{% endif %}
   {% if claim.arrived_at %}<tr><td class="k">Дата поступления на склад</td><td class="v">{{ claim.arrived_at|date:"d.m.Y" }}</td></tr>{% endif %}
   {% if claim.kit %}<tr><td class="k">Комплектация</td><td class="v">{{ claim.kit }}</td></tr>{% endif %}
   {% if claim.appearance %}<tr><td class="k">Внешний вид поступившего изделия</td><td class="v">{{ claim.appearance }}</td></tr>{% endif %}

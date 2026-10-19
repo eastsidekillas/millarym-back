@@ -366,6 +366,7 @@ def claims_report(params: dict) -> Result:
     claims = sorted(qs, key=lambda c: (order.get(c.defect_type, len(order)), c.period, c.seq))
     by_defect = Counter(c.get_defect_type_display() or "Не указан" for c in claims)
     by_type = Counter(c.get_claim_type_display() for c in claims)
+    by_state = Counter(c.get_state_display() for c in claims)
     rows = []
     for c in claims:
         label = c.get_defect_type_display() or "Не указан"
@@ -380,6 +381,7 @@ def claims_report(params: dict) -> Result:
                     "item": c.product,
                     "item_number": c.item_number,
                     "type": c.get_claim_type_display(),
+                    "state": c.get_state_display() + (f" {fmt_date(c.closed_at)}" if c.closed_at else ""),
                     "description": c.description,
                 },
                 group=f"{label}: {by_defect[label]} шт.",
@@ -388,13 +390,14 @@ def claims_report(params: dict) -> Result:
     summary = [
         Summary("По виду дефекта", [(k, str(v)) for k, v in by_defect.most_common()]),
         Summary("По типу претензии", [(k, str(v)) for k, v in by_type.most_common()]),
+        Summary("По состоянию", [(k, str(v)) for k, v in by_state.most_common()]),
     ]
     return Result(
         "Рекламации",
         f"Заведены с {fmt_date(start)} по {fmt_date(end)}",
         [Column("act", "№ акта", 9), Column("date", "Дата", 10), Column("counterparty", "Контрагент", 24),
          Column("item", "Изделие", 30), Column("item_number", "№ изделия", 12), Column("type", "Тип претензии", 16),
-         Column("description", "Описание", 40)],
+         Column("state", "Состояние", 18), Column("description", "Описание", 40)],
         rows,
         summary,
         filename=f"Рекламации {fmt_date(start)}-{fmt_date(end)}",

@@ -99,3 +99,27 @@ class ClaimsTest(Fixtures, TestCase):
         self.assertEqual(data["rows"][0]["group"], "Транспортировка: 2 шт.")
         self.assertEqual(data["rows"][-1]["group"], "Не указан: 1 шт.")
         self.assertEqual(client.get(f"/api/v1/reports/claims/xlsx/?from={today}&to={today}").status_code, 200)
+
+    def test_close_and_reopen(self):
+        client = self.client_for(self.manager)
+        a = client.post("/api/v1/claims/", {"product": "Бали", "defect_type": "transport"}, format="json").json()
+        b = client.post("/api/v1/claims/", {"product": "Канзас"}, format="json").json()
+        self.assertEqual(a["state"], "open")
+        self.assertEqual(self.client_for(self.storekeeper).post(f"/api/v1/claims/{a['id']}/close/", {"state": "done"}, format="json").status_code, 403)
+        self.assertEqual(client.post(f"/api/v1/claims/{a['id']}/close/", {"state": "open"}, format="json").status_code, 400)
+        done = client.post(f"/api/v1/claims/{a['id']}/close/", {"state": "done", "note": " Заменили подлокотник "}, format="json").json()
+        self.assertEqual((done["state"], done["state_label"], done["close_note"]), ("done", "Выполнена", "Заменили подлокотник"))
+        self.assertEqual(done["closed_by"]["name"], self.manager.short_name)
+        client.post(f"/api/v1/claims/{b['id']}/close/", {"state": "withdrawn"}, format="json")
+        self.assertEqual(client.patch(f"/api/v1/claims/{a['id']}/", {"state": "open"}, format="json").json()["state"], "done")
+
+        self.assertEqual(client.get("/api/v1/claims/?state=open").json()["count"], 0)
+        self.assertEqual(client.get("/api/v1/claims/?state=closed").json()["count"], 2)
+        self.assertEqual(client.get("/api/v1/claims/?state=withdrawn").json()["results"][0]["state_label"], "Снята покупателем")
+        states = {x["id"]: x["count"] for x in client.get("/api/v1/claims/stats/?state=open").json()["state"]}
+        self.assertEqual(states, {"open": 0, "done": 1, "withdrawn": 1})
+        self.assertTrue(client.get(f"/api/v1/claims/{a['id']}/pdf/").content.startswith(b"%PDF"))
+
+        reopened = client.post(f"/api/v1/claims/{a['id']}/reopen/").json()
+        self.assertEqual((reopened["state"], reopened["closed_at"], reopened["closed_by"]), ("open", None, None))
+        self.assertEqual(reopened["close_note"], "Заменили подлокотник")
