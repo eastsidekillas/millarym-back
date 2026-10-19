@@ -22,6 +22,7 @@ STAGE_ORDER = [Stage.ORDERS, Stage.CUT, Stage.COVER, Stage.WORK, Stage.FG]
 class TrashReason(models.TextChoices):
     SHIPPED = "shipped", "Отгружено"
     DELETED = "deleted", "Удалено"
+    CANCELLED = "cancelled", "Заказ снят"
 
 
 class FabricSlot(models.TextChoices):

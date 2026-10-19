@@ -245,6 +245,24 @@ def trash(user, item_id: int) -> Item:
 
 
 @transaction.atomic
+def cancel_order(user, item_id: int) -> Item:
+    """Клиент передумал до кроя: изделие уходит в Корзину с причиной «Заказ снят»."""
+    require(user, "edit")
+    item = lock(item_id)
+    not_in_trash(item)
+    if item.stage != Stage.ORDERS:
+        raise ActionError(
+            f"{item.number} уже на этапе «{stage_label(item.stage)}». Снять заказ можно только на «Заказах»; "
+            "дальше уберите резерв — изделие станет свободным."
+        )
+    item.trashed_at = timezone.now()
+    item.trash_reason = TrashReason.CANCELLED
+    item.save()
+    log(item, user, EventKind.TRASH, f"Заказ снят (резерв был «{item.reserve}»)" if item.reserve else "Заказ снят")
+    return item
+
+
+@transaction.atomic
 def restore(user, item_id: int) -> Item:
     require(user, "restore")
     item = lock(item_id)

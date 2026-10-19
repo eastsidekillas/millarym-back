@@ -161,6 +161,11 @@ class ItemViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, viewsets.Gen
 
     @extend_schema(request=None, responses=ItemDetailSerializer)
     @action(detail=True, methods=["post"])
+    def cancel(self, request, pk=None):
+        return self.detail_response(services.cancel_order(request.user, self.item_id(pk)))
+
+    @extend_schema(request=None, responses=ItemDetailSerializer)
+    @action(detail=True, methods=["post"])
     def restore(self, request, pk=None):
         return self.detail_response(services.restore(request.user, self.item_id(pk)))
 

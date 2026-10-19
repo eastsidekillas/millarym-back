@@ -34,6 +34,8 @@ def available_actions(user, item: Item) -> list[dict]:
         )
     if item.stage == Stage.ORDERS and not item.fabric_arrived_at:
         actions.append(_action(user, "fabric_arrived", "Ткань пришла", "marks"))
+    if item.stage == Stage.ORDERS:
+        actions.append(_action(user, "cancel", "Снять заказ", "edit"))
     if item.stage == Stage.CUT:
         if not item.sew_at:
             actions.append(_action(user, "sew", "В шитьё", "marks"))
