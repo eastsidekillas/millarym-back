@@ -11,8 +11,7 @@ from django.utils import timezone
 
 from app_catalog.models import Fabric, ProductModel, Team
 
-from ..models import EventKind, FabricSlot, Item, ItemEvent, ItemFabric, Stage
-from ..numbering import take_numbers
+from ..models import LEGACY_PERIOD, EventKind, FabricSlot, Item, ItemEvent, ItemFabric, Stage
 from ..services import stage_label
 from . import text as t
 
@@ -30,6 +29,7 @@ LEGACY_USER = "legacy"
 # прежние фамилии сотрудников в старых базах → логин в новой системе
 OLD_SURNAMES = {"филина": "postnikova"}
 SEP = " · "
+ORDER_SEQ_BASE = 10_000_000
 
 
 @dataclass
@@ -41,6 +41,8 @@ class FabricPlan:
 
 @dataclass
 class ItemPlan:
+    number: str
+    seq: int
     legacy_number: str
     source: str
     original_name: str
@@ -250,8 +252,8 @@ class Importer:
             if have >= qty:
                 self.report.skipped["уже перенесено раньше (заказы)"] += 1
                 continue
-            for _ in range(qty - have):
-                plans.append(self._from_order(o, key))
+            for index in range(have, qty):
+                plans.append(self._from_order(o, key, index))
 
         new_team_names: dict[str, str] = {}
         for p in plans:
@@ -295,6 +297,8 @@ class Importer:
         }[stage]
 
         plan = ItemPlan(
+            number=rid,
+            seq=int(rid),
             legacy_number=legacy[:40],
             source=f"резервы {rid}",
             original_name=original,
@@ -333,12 +337,16 @@ class Importer:
             plan.notes += self._order_notes(order)
         return plan
 
-    def _from_order(self, o: dict, key: str) -> ItemPlan:
+    def _from_order(self, o: dict, key: str, index: int = 0) -> ItemPlan:
         original = t.clean(o.get("goods_name"))
         model, custom, extra = self._name(original, is_order=True)
         reserve = t.clean(o.get("goods_ip"))
         created = t.unix_date(o.get("add_date"))
+        oid = int(o["order_id"])
         plan = ItemPlan(
+            number=key if index == 0 else f"{key}-{index + 1}",
+            # отдельный диапазон, чтобы не совпасть с номерами из резервов
+            seq=ORDER_SEQ_BASE + oid * 100 + index,
             legacy_number=key,
             source=f"заказы {key}",
             original_name=original,
@@ -393,16 +401,16 @@ class Importer:
             return []
         legacy_user = self._legacy_user()
         now = timezone.now()
-        period, seqs = take_numbers(len(plans))
         items = []
         events: list[tuple[ItemEvent, datetime]] = []
-        for plan, seq in zip(sorted(plans, key=self._order_key), seqs):
+        for plan in sorted(plans, key=self._order_key):
             manager = self._resolve_manager(plan.manager_name) or legacy_user
             created = aware(plan.created) or now
             team = self._team(plan.team_name)
             item = Item.objects.create(
-                period=period,
-                seq=seq,
+                period=LEGACY_PERIOD,
+                seq=plan.seq,
+                number=plan.number,
                 legacy_number=plan.legacy_number,
                 model=plan.model,
                 custom_name=plan.custom_name if not plan.model else "",

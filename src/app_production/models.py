@@ -42,6 +42,10 @@ class NumberSequence(models.Model):
         return f"{self.period}: {self.last_value}"
 
 
+# изделия из старых систем: номер старый («114542», «9578/ЗАК»), год не указан
+LEGACY_PERIOD = 0
+
+
 def format_number(period: int, seq: int) -> str:
     return f"{period % 100:02d}/{seq:04d}"
 
@@ -122,7 +126,8 @@ class Item(models.Model):
         return self.number
 
     def save(self, *args, **kwargs):
-        self.number = format_number(self.period, self.seq)
+        if self.period != LEGACY_PERIOD:
+            self.number = format_number(self.period, self.seq)
         super().save(*args, **kwargs)
 
     @property

@@ -8,6 +8,7 @@ from django.test import SimpleTestCase, TestCase
 from django.utils import timezone
 
 from app_catalog.models import Category, Fabric, ProductModel, Team
+from app_production import services as s
 from app_production.legacy import text as t
 from app_production.legacy.dump import DumpError, read_tables
 from app_production.models import EventKind, Item, Stage
@@ -215,12 +216,20 @@ class ImportLegacyTest(Fixtures, TestCase):
         no_client = items["9402/ЗАК"]
         self.assertEqual((no_client.stage, no_client.fabric_arrived_at), (Stage.CUT, date(2026, 9, 25)))
         self.assertEqual(no_client.fabrics.get(slot="main").fabric, self.velour)
-        self.assertEqual(min(i.number for i in Item.objects.all()), "26/0001")
+        self.assertEqual(
+            sorted(Item.objects.values_list("number", flat=True)),
+            ["114404", "114421", "114542", "63605", "9386/ЗАК", "9386/ЗАК-2", "9402/ЗАК"],
+        )
+        [new] = s.create_items(self.manager, model=self.model, fabrics=self.fabrics())
+        self.assertEqual(new.number, "26/0001")
+        linked.extra = "правый угол"
+        linked.save()
+        self.assertEqual(Item.objects.get(pk=linked.pk).number, "114542")
 
         again = self.run_cmd(reserv, orders)
         self.assertIn("Заведено изделий: 0", again)
         self.assertIn("уже перенесено раньше (резервы): 4", again)
-        self.assertEqual(Item.objects.count(), 7)
+        self.assertEqual(Item.objects.count(), 8)
 
     def test_order_imported_then_unit_appears(self):
         reserv, orders = self.write([reserv_row(1, "старая запись", "")], [order_row(9600, "Диван Бостон", date(2026, 10, 1))])
