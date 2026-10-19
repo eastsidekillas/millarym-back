@@ -19,7 +19,7 @@ class Command(BaseCommand):
         parser.add_argument("--since", default="2026-01-01", help="заказы с этой даты, ГГГГ-ММ-ДД (по умолчанию 2026-01-01)")
         parser.add_argument(
             "--manager", action="append", default=[], metavar="ИМЯ=ЛОГИН",
-            help="сопоставить менеджера из старой базы пользователю, например «Ольга Филина=postnikova»",
+            help="сопоставить менеджера из старой базы пользователю, например «Окишева Екатерина=okisheva»",
         )
         parser.add_argument("--report", help="сохранить отчёт ещё и в файл")
         parser.add_argument("--dry-run", action="store_true", help="только отчёт, без записи в базу")

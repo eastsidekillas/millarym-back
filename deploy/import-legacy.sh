@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Перенос из старых баз: bash deploy/import-legacy.sh /root/reserv_db2.sql /root/zakaz.sql --dry-run [--manager "Ольга Филина=postnikova"]
+# Перенос из старых баз: bash deploy/import-legacy.sh /root/reserv_db2.sql /root/zakaz.sql --dry-run [--manager "Имя в старой базе=логин"]
 # Сначала с --dry-run (только отчёт), потом без него. Повторный запуск дублей не создаёт.
 set -euo pipefail
 RESERV=$(realpath "${1:?укажите дамп резервов (reserv_db2.sql)}")

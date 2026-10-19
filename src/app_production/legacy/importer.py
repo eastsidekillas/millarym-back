@@ -27,6 +27,8 @@ ORDER_SLOTS = [
 ]
 CANCELLED = re.compile(r"\bснят|\bотмен|\bаннулир", re.IGNORECASE)
 LEGACY_USER = "legacy"
+# прежние фамилии сотрудников в старых базах → логин в новой системе
+OLD_SURNAMES = {"филина": "postnikova"}
 SEP = " · "
 
 
@@ -190,6 +192,9 @@ class Importer:
         if login:
             return next((u for u in self.users if u.username == login), None)
         words = {w.lower().replace("ё", "е") for w in name.replace(".", " ").split()}
+        for surname, login in OLD_SURNAMES.items():
+            if surname in words:
+                return next((u for u in self.users if u.username == login), None)
         for user in self.users:
             if user.last_name and user.last_name.lower().replace("ё", "е") in words:
                 return user

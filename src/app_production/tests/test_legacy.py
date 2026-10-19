@@ -171,11 +171,11 @@ class ImportLegacyTest(Fixtures, TestCase):
         self.assertIn("9409/ЗАК", out)
         self.assertIn("заказы, снятые", out)
         self.assertIn("1 × Гаити 1600 диван", out)
-        self.assertIn("Ольга Филина (2)", out)
+        self.assertNotIn("Менеджер не найден", out)
 
     def test_import(self):
         reserv, orders = self.dumps()
-        out = self.run_cmd(reserv, orders, "--manager", "Ольга Филина=postnikova")
+        out = self.run_cmd(reserv, orders)
         self.assertIn("Заведено изделий: 7", out)
         items = {i.legacy_number: i for i in Item.objects.all()}
         self.assertEqual(sorted(items), ["114404", "114421", "114542 · 9578/ЗАК", "63605", "9386/ЗАК", "9402/ЗАК"])
