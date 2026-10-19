@@ -4,7 +4,7 @@ from rest_framework import serializers
 from app_catalog.serializers import FileUrlField, check_photo_size
 from app_production.models import Item
 
-from .models import Claim, ClaimPhoto, ClaimType, DefectType, Sender
+from .models import CLOSED_STATES, Claim, ClaimPhoto, ClaimState, ClaimType, DefectType, Sender
 
 User = get_user_model()
 
@@ -50,12 +50,14 @@ class ClaimListSerializer(serializers.ModelSerializer):
     claim_type_label = serializers.CharField(source="get_claim_type_display", read_only=True)
     defect_type_label = serializers.CharField(source="get_defect_type_display", read_only=True)
     photos_count = serializers.IntegerField(read_only=True, default=0)
+    state_label = serializers.CharField(source="get_state_display", read_only=True)
 
     class Meta:
         model = Claim
         fields = [
             "id", "number", "act_date", "created_at", "manager", "counterparty", "product", "item_number",
             "description", "claim_type", "claim_type_label", "defect_type", "defect_type_label", "photos_count",
+            "state", "state_label", "closed_at",
         ]
 
 
@@ -65,6 +67,8 @@ class ClaimSerializer(serializers.ModelSerializer):
     claim_type_label = serializers.CharField(source="get_claim_type_display", read_only=True)
     defect_type_label = serializers.CharField(source="get_defect_type_display", read_only=True)
     sender_label = serializers.CharField(source="get_sender_display", read_only=True)
+    state_label = serializers.CharField(source="get_state_display", read_only=True)
+    closed_by = PersonField(read_only=True)
     photos = ClaimPhotoSerializer(many=True, read_only=True)
     created_by = PersonField(read_only=True)
     updated_by = PersonField(read_only=True)
@@ -73,9 +77,10 @@ class ClaimSerializer(serializers.ModelSerializer):
         model = Claim
         fields = [
             "id", "number", *EDITABLE, "claim_type_label", "defect_type_label", "sender_label",
+            "state", "state_label", "closed_at", "closed_by", "close_note",
             "photos", "created_at", "created_by", "updated_at", "updated_by",
         ]
-        read_only_fields = ["number", "created_at", "updated_at"]
+        read_only_fields = ["number", "state", "closed_at", "close_note", "created_at", "updated_at"]
 
     def validate(self, attrs):
         for key in EDITABLE:
@@ -98,4 +103,14 @@ def choices(enum) -> list[dict]:
     return [{"id": value, "name": label} for value, label in enum.choices]
 
 
-CHOICES = {"claim_type": choices(ClaimType), "defect_type": choices(DefectType), "sender": choices(Sender)}
+CHOICES = {
+    "claim_type": choices(ClaimType),
+    "defect_type": choices(DefectType),
+    "sender": choices(Sender),
+    "state": choices(ClaimState),
+}
+
+
+class CloseSerializer(serializers.Serializer):
+    state = serializers.ChoiceField(choices=[(s.value, s.label) for s in CLOSED_STATES])
+    note = serializers.CharField(required=False, allow_blank=True, default="", max_length=2000)

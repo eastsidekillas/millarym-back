@@ -29,6 +29,15 @@ class DefectType(models.TextChoices):
     OTHER = "other", "Другое"
 
 
+class ClaimState(models.TextChoices):
+    OPEN = "open", "Открыта"
+    DONE = "done", "Выполнена"
+    WITHDRAWN = "withdrawn", "Снята покупателем"
+
+
+CLOSED_STATES = (ClaimState.DONE, ClaimState.WITHDRAWN)
+
+
 class Sender(models.TextChoices):
     YULDASHEVA = "yuldasheva", "ИП Юлдашева О.А."
     OKULOVA = "okulova", "ИП Окулова В.А."
@@ -87,6 +96,13 @@ class Claim(models.Model):
     research = models.TextField("результаты исследований", blank=True, default="")
     defect_type = models.CharField("вид дефекта", max_length=20, choices=DefectType.choices, blank=True, default="")
     remedy = models.TextField("меры по устранению", blank=True, default="")
+
+    state = models.CharField("состояние", max_length=10, choices=ClaimState.choices, default=ClaimState.OPEN)
+    closed_at = models.DateTimeField("закрыта", null=True, blank=True, editable=False)
+    closed_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, models.PROTECT, null=True, blank=True, related_name="+", verbose_name="закрыл", editable=False
+    )
+    close_note = models.TextField("чем закончилась", blank=True, default="")
 
     restore_cost = models.DecimalField("расходы по восстановлению", max_digits=10, decimal_places=2, null=True, blank=True)
     finance_note = models.TextField("финансовая часть: пояснение", blank=True, default="")

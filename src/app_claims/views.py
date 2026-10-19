@@ -3,6 +3,7 @@ from urllib.parse import quote
 
 from django.db.models import Count
 from django.http import HttpResponse
+from django.utils import timezone
 from drf_spectacular.types import OpenApiTypes
 from drf_spectacular.utils import OpenApiParameter, extend_schema, extend_schema_view
 from rest_framework import mixins, viewsets
@@ -16,15 +17,16 @@ from app_auth.permissions import ReadOrRight
 from app_reports.pdf import render_pdf
 
 from .blank import build_blank
-from .models import Claim, ClaimPhoto
+from .models import Claim, ClaimPhoto, ClaimState
 from .queries import filter_claims, stats
-from .serializers import CHOICES, ClaimListSerializer, ClaimPhotoSerializer, ClaimSerializer
+from .serializers import CHOICES, ClaimListSerializer, ClaimPhotoSerializer, ClaimSerializer, CloseSerializer
 
 FILTERS = [
     OpenApiParameter("q", str, description="номер акта, контрагент, изделие, номер изделия, описание"),
     OpenApiParameter("claim_type", str),
     OpenApiParameter("defect_type", str),
     OpenApiParameter("sender", str),
+    OpenApiParameter("state", str, description="open, done, withdrawn или closed (выполнена и снята)"),
     OpenApiParameter("from", str, description="ГГГГ-ММ-ДД"),
     OpenApiParameter("to", str, description="ГГГГ-ММ-ДД"),
 ]
@@ -79,6 +81,29 @@ class ClaimViewSet(
     @action(detail=False)
     def choices(self, request):
         return Response(CHOICES)
+
+    @extend_schema(request=CloseSerializer, responses=ClaimSerializer)
+    @action(detail=True, methods=["post"])
+    def close(self, request, pk=None):
+        claim = self.get_object()
+        data = CloseSerializer(data=request.data)
+        data.is_valid(raise_exception=True)
+        claim.state = data.validated_data["state"]
+        claim.close_note = data.validated_data["note"].strip()
+        claim.closed_at = timezone.now()
+        claim.closed_by = claim.updated_by = request.user
+        claim.save()
+        return Response(ClaimSerializer(claim, context=self.get_serializer_context()).data)
+
+    @extend_schema(request=None, responses=ClaimSerializer)
+    @action(detail=True, methods=["post"])
+    def reopen(self, request, pk=None):
+        claim = self.get_object()
+        claim.state = ClaimState.OPEN
+        claim.closed_at = claim.closed_by = None
+        claim.updated_by = request.user
+        claim.save()
+        return Response(ClaimSerializer(claim, context=self.get_serializer_context()).data)
 
     @extend_schema(request=ClaimPhotoSerializer, responses=ClaimPhotoSerializer)
     @action(detail=True, methods=["post"])

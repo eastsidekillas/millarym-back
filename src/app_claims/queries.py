@@ -4,7 +4,7 @@ from django.db.models import Count, Q, QuerySet
 from django.utils import timezone
 from django.utils.dateparse import parse_date
 
-from .models import Claim, ClaimType, DefectType
+from .models import CLOSED_STATES, Claim, ClaimState, ClaimType, DefectType
 
 
 def filter_claims(qs: QuerySet[Claim], params, skip: str = "") -> QuerySet[Claim]:
@@ -17,6 +17,11 @@ def filter_claims(qs: QuerySet[Claim], params, skip: str = "") -> QuerySet[Claim
             | Q(item_number__icontains=text)
             | Q(description__icontains=text)
         )
+    state = params.get("state")
+    if state == "closed" and skip != "state":
+        qs = qs.filter(state__in=CLOSED_STATES)
+    elif state and skip != "state":
+        qs = qs.filter(state=state)
     for key in ("claim_type", "defect_type", "sender"):
         value = params.get(key)
         if value and key != skip:
@@ -43,4 +48,5 @@ def stats(params) -> dict:
         "total": filter_claims(base, params).count(),
         "defect_type": counts("defect_type", DefectType),
         "claim_type": counts("claim_type", ClaimType),
+        "state": counts("state", ClaimState),
     }
