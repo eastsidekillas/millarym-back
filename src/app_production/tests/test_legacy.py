@@ -84,7 +84,7 @@ class Model:
 
 class MatcherTest(SimpleTestCase):
     def setUp(self):
-        names = ["Бостон", "Дубай М 1400", "Дубай М 1400 (4 кат.)", "Дубай М кресло", "Аванти Модерн В", "Бисмарк пуф", "Мадрид-2 кровать 1600*2000"]
+        names = ["Пуф Рубик", "Кресло Честер", "Гаити 1600 диван", "Комплект подушек для стула 40*40 2 шт", "Комплект покрывало /2600*1400/ 2 подушки /70*50/ велюр", "Бостон", "Дубай М 1400", "Дубай М 1400 (4 кат.)", "Дубай М кресло", "Аванти Модерн В", "Бисмарк пуф", "Мадрид-2 кровать 1600*2000"]
         self.m = t.ModelMatcher([Model(n) for n in names])
 
     def check(self, old, model, extra=""):
@@ -101,8 +101,14 @@ class MatcherTest(SimpleTestCase):
         self.check("Пуф Бисмарк - 3 штуки", "Бисмарк пуф")
         self.check("Мадрид-2 кровать 1600*200015,10,26", "Мадрид-2 кровать 1600*2000")
         self.check("Дубай М 1400 диван16,10,26 Накладки белые", "Дубай М 1400", "Накладки белые")
-        self.check("Гаити 1600 диван", None)
+        self.check("Баку диван правый", None)
         self.check("Кресло Бостон", None)
+        self.check("Пуф Рубик 25.05.26", "Пуф Рубик")
+        self.check("Честер кресло", "Кресло Честер")
+        self.check("Гаити 1600 диван 20.10.23", "Гаити 1600 диван")
+        self.check("БД Гаити 1600", "Гаити 1600 диван")
+        self.check("Комплект подушек для стула 40*40 2 шт.", "Комплект подушек для стула 40*40 2 шт")
+        self.check("Комплект покрывало /2600*1400/ 2 подушки /70*50/ велюр", "Комплект покрывало /2600*1400/ 2 подушки /70*50/ велюр")
         self.check("Пуф Бостон - 2 штуки", None)
 
 
@@ -300,3 +306,24 @@ class FabricMatchTest(Fixtures, TestCase):
         self.assertEqual(item.fabrics.get(slot="main").fabric, manila)
         self.assertFalse(Fabric.objects.filter(pk=old.pk).exists())
         self.assertTrue(Fabric.objects.filter(pk=stray.pk).exists())
+
+    def test_relink_models(self):
+        reserv = Path(tempfile.mkdtemp()) / "r.sql"
+        orders = reserv.with_name("z.sql")
+        reserv.write_text(insert("reserv", RESERV_COLS, [reserv_row(5, "Дуглас 1600 диван 30,07,26 Накладки венге", "2"), reserv_row(6, "Баку диван", "2")]), encoding="utf-8")
+        orders.write_text(insert("orders", ORDER_COLS, [order_row(1, "Диван", date(2020, 1, 1))]), encoding="utf-8")
+        call_command("import_legacy", reserv=str(reserv), orders=str(orders), stdout=StringIO())
+        item = Item.objects.get(number="5")
+        self.assertEqual((item.model, item.custom_name), (None, "Дуглас 1600 диван Накладки венге"))
+
+        douglas = ProductModel.objects.create(name="Дуглас 1600", category=self.model.category)
+        out = StringIO()
+        call_command("relink_models", "--dry-run", stdout=out)
+        self.assertIn("Нашлась модель: 1. Осталось вне справочника: 1", out.getvalue())
+        self.assertIsNone(Item.objects.get(number="5").model)
+        out = StringIO()
+        call_command("relink_models", stdout=out)
+        self.assertIn("1 × Баку диван", out.getvalue())
+        item.refresh_from_db()
+        self.assertEqual((item.model, item.custom_name, item.extra), (douglas, "", "Накладки венге"))
+        self.assertIn("→ Дуглас 1600", item.events.order_by("-id").first().text)

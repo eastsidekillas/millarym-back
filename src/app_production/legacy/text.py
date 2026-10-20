@@ -104,11 +104,21 @@ def fold(s: str) -> str:
     return s.translate(HOMOGLYPHS)
 
 
+def model_norm(text: str) -> str:
+    """Общая форма названия для сравнения: без регистра, кавычек, знаков препинания и «(4 кат.)»."""
+    s = clean(text).lower().replace("ё", "е")
+    s = re.sub(r"\(?\s*\d+\s*кат\.?\s*\)?", " ", s)
+    s = re.sub(r"[^\w*\-\s]", " ", s)
+    s = re.sub(r"(?<!\S)-+(?!\S)", " ", s)
+    return SPACES.sub(" ", s).strip()
+
+
+def without_sofa(text: str) -> str:
+    return SPACES.sub(" ", re.sub(r"\bдиван\b", " ", text)).strip()
+
+
 def model_key(name: str) -> tuple[str, bool]:
-    s = clean(name).lower().replace("ё", "е")
-    four = "(4 кат.)" in s
-    s = s.replace("(4 кат.)", "")
-    return SPACES.sub(" ", s).strip(), four
+    return model_norm(name), bool(re.search(r"4\s*кат", name.lower()))
 
 
 KIND_PREFIX = re.compile(r"^(бд|диван|кресло|кровать|пуф)\b\s*", re.IGNORECASE)
@@ -119,56 +129,74 @@ class ModelMatcher:
     """Находит модель справочника по началу названия из старой системы."""
 
     def __init__(self, models):
-        self.by_key: dict[tuple[str, bool], object] = {}
+        # два прохода: сначала названия как есть, потом без слова «диван» с обеих сторон
+        self.passes: list[list[tuple[str, str, dict]]] = []
+        exact: dict[str, dict] = {}
+        loose: dict[str, dict] = {}
         for m in models:
             key, four = model_key(m.name)
-            self.by_key.setdefault((key, four), m)
-        self.keys = sorted({k for k, _ in self.by_key}, key=len, reverse=True)
-        self.folded = [(fold(k), k) for k in self.keys]
+            if not key:
+                continue
+            for k in [key, *self._kind_moved(key)]:
+                exact.setdefault(k, {}).setdefault(four, m)
+                loose.setdefault(without_sofa(k), {}).setdefault(four, m)
+        for table in (exact, loose):
+            keys = sorted(table, key=len, reverse=True)
+            self.passes.append([(fold(k), k, table[k]) for k in keys])
 
-    def _normalize(self, name: str) -> tuple[list[tuple[str, str | None]], bool]:
+    @staticmethod
+    def _kind_moved(key: str) -> list[str]:
+        """«кресло честер» → «честер кресло»: в старой базе вид изделия обычно после названия."""
+        m = KIND_PREFIX.match(key)
+        if not m or m.group(1).lower() not in ("кресло", "пуф", "кровать"):
+            return []
+        kind, words = m.group(1).lower(), key[m.end():].split(" ")
+        return [" ".join(words[:n] + [kind] + words[n:]) for n in (2, 1) if len(words) >= n]
+
+    def _variants(self, name: str) -> tuple[list[tuple[str, str | None]], bool]:
         """Варианты (текст, обязательное слово в названии модели) и признак «4 кат.»."""
         s = clean(name).lower().replace("ё", "е")
-        s = re.sub(r"[«»\"“”]", " ", s)
-        s = re.sub(r"\(\s*(?:заказ[^)]*|№[^)]*)\)", " ", s)
+        s = re.sub(r"\(\s*(?:заказ[^)]*|№\s*\d{3,}[^)]*)\)", " ", s)
         s = re.sub(r"\bзаказ\w*\s*№?\s*\d*", " ", s)
         s = ORDER_REF.sub(" ", s)
         s = DATE.sub(" ", s)
         four = bool(re.search(r"4\s*кат", s))
-        s = re.sub(r"\(?\s*\d+\s*кат\.?\s*\)?", " ", s)
-        s = QTY.sub(" ", s)
-        s = SPACES.sub(" ", s).strip()
-        kind = None
-        m = KIND_PREFIX.match(s)
-        if m:
-            kind = m.group(1)
-            s = s[m.end():]
-        s = SPACES.sub(" ", re.sub(r"[^\w*\-\s]", " ", s)).strip()
-        without_sofa = SPACES.sub(" ", re.sub(r"\bдиван\b", " ", s)).strip()
-        if kind in ("кресло", "пуф", "кровать"):
-            # «Кресло "Дубай М"» → «дубай м кресло», «Пуф Бисмарк» → «бисмарк пуф»;
-            # без слова-вида не ищем, иначе «Кресло Бостон» найдёт диван «Бостон»
-            variants = []
-            for v in (s, without_sofa):
-                words = v.split(" ")
+        bases = []
+        # сначала без «- 3 штуки» (это количество), потом как есть — «… 40*40 2 шт» бывает частью названия
+        for text in (QTY.sub(" ", s), s):
+            norm = model_norm(text)
+            if norm and norm not in bases:
+                bases.append(norm)
+        variants: list[tuple[str, str | None]] = []
+        for base in bases:
+            m = KIND_PREFIX.match(base)
+            kind = m.group(1).lower() if m else None
+            rest = base[m.end():] if m else base
+            variants.append((base, kind if kind in ("кресло", "пуф", "кровать") else None))
+            if kind in ("кресло", "пуф", "кровать"):
+                # «Кресло "Дубай М"» → «дубай м кресло»; без слова-вида не ищем,
+                # иначе «Кресло Бостон» найдёт диван «Бостон»
+                words = rest.split(" ")
                 for n in (2, 1):
                     if len(words) >= n:
                         variants.append((" ".join(words[:n] + [kind] + words[n:]), kind))
-        else:
-            variants = [(s, None), (without_sofa, None)]
+            elif kind:
+                variants.append((rest, None))
         return variants, four
 
     def match(self, name: str):
         """(модель или None, остаток текста после названия модели)."""
-        variants, four = self._normalize(name)
-        for v, required in variants:
-            fv = fold(v)
-            for fkey, key in self.folded:
-                if required and required not in key.split(" "):
-                    continue
-                if fv == fkey or fv.startswith(fkey + " "):
-                    model = self.by_key.get((key, four)) or self.by_key.get((key, False)) or self.by_key.get((key, True))
-                    return model, v[len(key):].strip()
+        variants, four = self._variants(name)
+        for index, entries in enumerate(self.passes):
+            for v, required in variants:
+                text = without_sofa(v) if index else v
+                ft = fold(text)
+                for fkey, key, by_four in entries:
+                    if required and required not in key.split(" "):
+                        continue
+                    if ft == fkey or ft.startswith(fkey + " "):
+                        model = by_four.get(four) or by_four.get(False) or by_four.get(True)
+                        return model, text[len(key):].strip()
         return None, variants[0][0] if variants else ""
 
 
