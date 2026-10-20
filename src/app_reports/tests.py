@@ -42,6 +42,22 @@ class ReportsTest(Fixtures, TestCase):
         models = self.client.get("/api/v1/reports/free-stock/models/").json()
         self.assertEqual(models[-1], {"id": "custom", "name": "Вне справочника", "count": 1})
 
+    def test_revision_all_items(self):
+        [b] = self.make()
+        [o] = self.make(reserve="ИП Петров")
+        [f] = self.make(model=self.other_model)
+        [t] = self.make()
+        s.trash(self.director, t.pk)
+        data = self.client.get("/api/v1/reports/revision/").json()
+        self.assertEqual([r["number"] for r in data["rows"]], [o.number, b.number, f.number])
+        cells = {r["number"]: r["cells"] for r in data["rows"]}
+        self.assertEqual((cells[b.number]["reserve"], cells[o.number]["reserve"]), ("свободно", "ИП Петров"))
+        self.assertEqual((cells[o.number]["where"], cells[b.number]["where"]), ("Заказы", "Крой"))
+        self.assertEqual(data["rows"][0]["group"], "Бостон: 2 шт.")
+        totals = dict(data["summary"][0]["rows"])
+        self.assertEqual(totals, {"Всего изделий": "3", "В резерве": "1", "Свободных": "2"})
+        self.assertEqual(self.client.get("/api/v1/reports/revision/xlsx/").status_code, 200)
+
     def test_reserved_groups_and_repeats(self):
         a, b = self.make(reserve="ИП Петров", qty=2)
         [c] = self.make(reserve="ООО Диван")

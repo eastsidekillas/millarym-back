@@ -193,6 +193,35 @@ def free_stock(params: dict) -> Result:
     )
 
 
+def revision(params: dict) -> Result:
+    """Все изделия на всех этапах — для сверки со складом: по алфавиту, группы по модели."""
+    items = sorted(
+        base().filter(trashed_at__isnull=True),
+        key=lambda i: (ru_key(i.title), ru_key(i.extra), stage_index(i), i.period, i.seq),
+    )
+    by_title = Counter(i.title for i in items)
+    rows = []
+    for i in items:
+        row = stock_row(i)
+        row.cells["reserve"] = i.reserve or "свободно"
+        row.group = f"{i.title}: {by_title[i.title]} шт."
+        rows.append(row)
+    by_stage = Counter(where(i) for i in items)
+    free = sum(1 for i in items if not i.reserve)
+    summary = [
+        Summary("Итого", [("Всего изделий", str(len(items))), ("В резерве", str(len(items) - free)), ("Свободных", str(free))]),
+        Summary("По этапам", [(label, str(by_stage[label])) for label in Stage.labels if by_stage[label]]),
+    ]
+    return Result(
+        "Ревизия: все изделия",
+        f"Все этапы, в резерве и свободные, на {today_label()}",
+        [COL_ITEM, COL_NUMBER, COL_PHOTOS, COL_FABRICS, COL_RESERVE, COL_WHERE],
+        rows,
+        summary,
+        filename=f"Ревизия {today_label()}",
+    )
+
+
 def reserved(params: dict) -> Result:
     text = (params.get("q") or "").strip()
     qs = base().filter(trashed_at__isnull=True).exclude(reserve="")
@@ -408,6 +437,7 @@ MODELS_PARAM = Param("models", "Модели", "models")
 REPORTS = [
     Report("free-stock", "Свободные остатки", "Все изделия без резерва на Крое, Складе чехлов, В работе и СГП, с фото тканей. Можно выбрать модели.", [MODELS_PARAM], free_stock),
     Report("reserved", "Зарезервированные по контрагенту", "Все подписанные изделия на любом этапе: итог по моделям для сверки с заявкой, повторы подсвечены. Годится для погрузки.", [Param("q", "Контрагент или часть резерва", "text", placeholder="Пусто — все контрагенты"), Param("only_fg", "Только СГП", "bool")], reserved),
+    Report("revision", "Ревизия: все изделия", "Все изделия на всех этапах — заказы, в резерве и свободные — по алфавиту моделей, с количеством по каждой модели. Для сверки со складом.", [], revision),
     Report("orders-period", "Заказы за период", "Изделия с резервом, заведённые в эти даты, включая отгруженные.", [Param("from", "С", "date", True), Param("to", "По", "date", True)], orders_period),
     Report("orders-by-reserve", "Заказы по контрагенту", "Все изделия, у которых резерв содержит текст, включая отгруженные.", [Param("q", "Контрагент или часть резерва", "text", True, "Например, Фоминых")], orders_by_reserve),
     Report("orders-by-model", "Заказы по модели", "Изделия с резервом, в названии которых есть этот текст: «Бали» найдёт и «Бали (4 кат.)», и спецзаказы, вписанные вручную. Несколько — через запятую. Включая отгруженные.", [Param("q", "Название изделия или его часть", "text", True, "Например, Бали или Бали, Бостон")], orders_by_model),
