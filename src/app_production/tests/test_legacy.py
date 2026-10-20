@@ -84,7 +84,7 @@ class Model:
 
 class MatcherTest(SimpleTestCase):
     def setUp(self):
-        names = ["Бостон", "Дубай М 1400", "Дубай М 1400 (4 кат.)", "Дубай М кресло", "Аванти Модерн В", "Бисмарк пуф", "Мадрид-2 кровать 1600*2000"]
+        names = ["Пуф Рубик", "Кресло Честер", "Гаити 1600 диван", "Комплект подушек для стула 40*40 2 шт", "Комплект покрывало /2600*1400/ 2 подушки /70*50/ велюр", "Бостон", "Дубай М 1400", "Дубай М 1400 (4 кат.)", "Дубай М кресло", "Аванти Модерн В", "Бисмарк пуф", "Мадрид-2 кровать 1600*2000"]
         self.m = t.ModelMatcher([Model(n) for n in names])
 
     def check(self, old, model, extra=""):
@@ -101,8 +101,14 @@ class MatcherTest(SimpleTestCase):
         self.check("Пуф Бисмарк - 3 штуки", "Бисмарк пуф")
         self.check("Мадрид-2 кровать 1600*200015,10,26", "Мадрид-2 кровать 1600*2000")
         self.check("Дубай М 1400 диван16,10,26 Накладки белые", "Дубай М 1400", "Накладки белые")
-        self.check("Гаити 1600 диван", None)
+        self.check("Баку диван правый", None)
         self.check("Кресло Бостон", None)
+        self.check("Пуф Рубик 25.05.26", "Пуф Рубик")
+        self.check("Честер кресло", "Кресло Честер")
+        self.check("Гаити 1600 диван 20.10.23", "Гаити 1600 диван")
+        self.check("БД Гаити 1600", "Гаити 1600 диван")
+        self.check("Комплект подушек для стула 40*40 2 шт.", "Комплект подушек для стула 40*40 2 шт")
+        self.check("Комплект покрывало /2600*1400/ 2 подушки /70*50/ велюр", "Комплект покрывало /2600*1400/ 2 подушки /70*50/ велюр")
         self.check("Пуф Бостон - 2 штуки", None)
 
 
@@ -247,3 +253,77 @@ class ImportLegacyTest(Fixtures, TestCase):
             self.run_cmd(reserv, orders, "--manager", "без знака")
         with self.assertRaises(CommandError):
             self.run_cmd(reserv, str(self.dir / "nope.sql"))
+
+
+class FabricMatchTest(Fixtures, TestCase):
+    @classmethod
+    def setUpTestData(cls):
+        cls.make_fixtures()
+
+    def test_loose_key(self):
+        from app_production.legacy.fabrics import loose_key
+
+        same = [
+            ("manila 01 001", "Manila 01"),
+            ("levis 01 4k 001", "Levis 01"),
+            ("kioto dove (4)", "Kioto Dove"),
+            ("nevada1", "Nevada 01"),
+            ("Levis - 10", "Levis 10"),
+            ("ultra cashmere 24072023", "Ultra Cashmere"),
+            ("columbia-nut 4k", "Columbia Nut"),
+            ("ultra_grafit_4k.jpeg", "Ultra grafit"),
+        ]
+        for old, new in same:
+            self.assertEqual(loose_key(old), loose_key(new), old)
+        self.assertNotEqual(loose_key("manila 01 001"), loose_key("Manila 10"))
+        self.assertNotEqual(loose_key("nevada 8 001"), loose_key("Nevada 9"))
+
+    def test_relink_and_import_use_renamed_fabrics(self):
+        from app_production.legacy.fabrics import FabricMatcher
+
+        manila = Fabric.objects.create(name="Manila 01")
+        Fabric.objects.create(name="Manila 10")
+        matcher = FabricMatcher(Fabric.objects.all())
+        self.assertEqual(matcher.find("manila 01 001"), (manila, True))
+        self.assertEqual(matcher.find("Manila 01"), (manila, False))
+        self.assertEqual(matcher.find("manila 02 001"), (None, False))
+
+        old = Fabric.objects.create(name="manila 01 001", active=False)
+        stray = Fabric.objects.create(name="zzz 5", active=False)
+        [item] = s.create_items(self.manager, model=self.model, fabrics=[{"slot": "main", "fabric": self.velour}])
+        item.fabrics.all().delete()
+        item.fabrics.create(slot="main", fabric=old)
+        item.fabrics.create(slot="comp1", fabric=stray)
+
+        out = StringIO()
+        call_command("relink_fabrics", "--dry-run", stdout=out)
+        self.assertIn("Привязано к тканям справочника: 1", out.getvalue())
+        self.assertEqual(item.fabrics.get(slot="main").fabric, old)
+        out = StringIO()
+        call_command("relink_fabrics", stdout=out)
+        self.assertIn("1 × manila 01 001 → Manila 01", out.getvalue())
+        self.assertIn("1 × zzz 5", out.getvalue())
+        self.assertEqual(item.fabrics.get(slot="main").fabric, manila)
+        self.assertFalse(Fabric.objects.filter(pk=old.pk).exists())
+        self.assertTrue(Fabric.objects.filter(pk=stray.pk).exists())
+
+    def test_relink_models(self):
+        reserv = Path(tempfile.mkdtemp()) / "r.sql"
+        orders = reserv.with_name("z.sql")
+        reserv.write_text(insert("reserv", RESERV_COLS, [reserv_row(5, "Дуглас 1600 диван 30,07,26 Накладки венге", "2"), reserv_row(6, "Баку диван", "2")]), encoding="utf-8")
+        orders.write_text(insert("orders", ORDER_COLS, [order_row(1, "Диван", date(2020, 1, 1))]), encoding="utf-8")
+        call_command("import_legacy", reserv=str(reserv), orders=str(orders), stdout=StringIO())
+        item = Item.objects.get(number="5")
+        self.assertEqual((item.model, item.custom_name), (None, "Дуглас 1600 диван Накладки венге"))
+
+        douglas = ProductModel.objects.create(name="Дуглас 1600", category=self.model.category)
+        out = StringIO()
+        call_command("relink_models", "--dry-run", stdout=out)
+        self.assertIn("Нашлась модель: 1. Осталось вне справочника: 1", out.getvalue())
+        self.assertIsNone(Item.objects.get(number="5").model)
+        out = StringIO()
+        call_command("relink_models", stdout=out)
+        self.assertIn("1 × Баку диван", out.getvalue())
+        item.refresh_from_db()
+        self.assertEqual((item.model, item.custom_name, item.extra), (douglas, "", "Накладки венге"))
+        self.assertIn("→ Дуглас 1600", item.events.order_by("-id").first().text)
