@@ -14,6 +14,7 @@ from app_catalog.models import Fabric, ProductModel, Team
 from ..models import LEGACY_PERIOD, EventKind, FabricSlot, Item, ItemEvent, ItemFabric, Stage
 from ..services import stage_label
 from . import text as t
+from .fabrics import FabricMatcher
 
 User = get_user_model()
 
@@ -73,6 +74,7 @@ class Report:
     linked: int = 0
     no_model: Counter = field(default_factory=Counter)
     new_fabrics: Counter = field(default_factory=Counter)
+    similar_fabrics: Counter = field(default_factory=Counter)
     new_teams: Counter = field(default_factory=Counter)
     unknown_managers: Counter = field(default_factory=Counter)
     cut_without_unit: list[str] = field(default_factory=list)
@@ -108,6 +110,12 @@ class Report:
                 "Если модель нужна, добавьте её в справочник и запустите перенос заново до начала работы:"
             )
             out.extend(f"  {n} × {name}" for name, n in self.no_model.most_common())
+        if self.similar_fabrics:
+            out.append(
+                f"Ткани сопоставлены по похожему названию ({len(self.similar_fabrics)}) — проверьте, что верно "
+                "(старое имя файла → ткань в справочнике):"
+            )
+            out.extend(f"  {n} × {old} → {new}" for (old, new), n in self.similar_fabrics.most_common())
         if self.new_fabrics:
             out.append(
                 f"Тканей нет в справочнике — заведены скрытыми, без фото ({len(self.new_fabrics)}), "
@@ -144,7 +152,7 @@ class Importer:
         self.manager_map = {k.strip().lower(): v.strip() for k, v in (manager_map or {}).items()}
         self.report = Report(reserv_total=len(reserv_rows), orders_total=len(self.orders))
         self.matcher = t.ModelMatcher(ProductModel.objects.all())
-        self.fabrics = {t.fabric_key(f.name): f for f in Fabric.objects.all()}
+        self.fabrics = FabricMatcher(Fabric.objects.all())
         self.teams = {}
         for team in Team.objects.all():
             for key in (first_word(team.name), first_word(team.foreman)):
@@ -174,8 +182,11 @@ class Importer:
         name = t.fabric_name(value)
         if not name:
             return None
-        if t.fabric_key(name) not in self.fabrics:
+        fabric, loose = self.fabrics.find(name)
+        if fabric is None:
             self.report.new_fabrics[name] += 1
+        elif loose:
+            self.report.similar_fabrics[(name, fabric.name)] += 1
         return FabricPlan(slot, name[:150], meters)
 
     @staticmethod
@@ -487,11 +498,10 @@ class Importer:
         return team
 
     def _fabric_obj(self, name: str) -> Fabric:
-        key = t.fabric_key(name)
-        fabric = self.fabrics.get(key)
+        fabric, _ = self.fabrics.find(name)
         if fabric is None:
             fabric = Fabric.objects.create(name=name, active=False)
-            self.fabrics[key] = fabric
+            self.fabrics.add(fabric)
         return fabric
 
 

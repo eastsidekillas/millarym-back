@@ -247,3 +247,56 @@ class ImportLegacyTest(Fixtures, TestCase):
             self.run_cmd(reserv, orders, "--manager", "без знака")
         with self.assertRaises(CommandError):
             self.run_cmd(reserv, str(self.dir / "nope.sql"))
+
+
+class FabricMatchTest(Fixtures, TestCase):
+    @classmethod
+    def setUpTestData(cls):
+        cls.make_fixtures()
+
+    def test_loose_key(self):
+        from app_production.legacy.fabrics import loose_key
+
+        same = [
+            ("manila 01 001", "Manila 01"),
+            ("levis 01 4k 001", "Levis 01"),
+            ("kioto dove (4)", "Kioto Dove"),
+            ("nevada1", "Nevada 01"),
+            ("Levis - 10", "Levis 10"),
+            ("ultra cashmere 24072023", "Ultra Cashmere"),
+            ("columbia-nut 4k", "Columbia Nut"),
+            ("ultra_grafit_4k.jpeg", "Ultra grafit"),
+        ]
+        for old, new in same:
+            self.assertEqual(loose_key(old), loose_key(new), old)
+        self.assertNotEqual(loose_key("manila 01 001"), loose_key("Manila 10"))
+        self.assertNotEqual(loose_key("nevada 8 001"), loose_key("Nevada 9"))
+
+    def test_relink_and_import_use_renamed_fabrics(self):
+        from app_production.legacy.fabrics import FabricMatcher
+
+        manila = Fabric.objects.create(name="Manila 01")
+        Fabric.objects.create(name="Manila 10")
+        matcher = FabricMatcher(Fabric.objects.all())
+        self.assertEqual(matcher.find("manila 01 001"), (manila, True))
+        self.assertEqual(matcher.find("Manila 01"), (manila, False))
+        self.assertEqual(matcher.find("manila 02 001"), (None, False))
+
+        old = Fabric.objects.create(name="manila 01 001", active=False)
+        stray = Fabric.objects.create(name="zzz 5", active=False)
+        [item] = s.create_items(self.manager, model=self.model, fabrics=[{"slot": "main", "fabric": self.velour}])
+        item.fabrics.all().delete()
+        item.fabrics.create(slot="main", fabric=old)
+        item.fabrics.create(slot="comp1", fabric=stray)
+
+        out = StringIO()
+        call_command("relink_fabrics", "--dry-run", stdout=out)
+        self.assertIn("Привязано к тканям справочника: 1", out.getvalue())
+        self.assertEqual(item.fabrics.get(slot="main").fabric, old)
+        out = StringIO()
+        call_command("relink_fabrics", stdout=out)
+        self.assertIn("1 × manila 01 001 → Manila 01", out.getvalue())
+        self.assertIn("1 × zzz 5", out.getvalue())
+        self.assertEqual(item.fabrics.get(slot="main").fabric, manila)
+        self.assertFalse(Fabric.objects.filter(pk=old.pk).exists())
+        self.assertTrue(Fabric.objects.filter(pk=stray.pk).exists())
