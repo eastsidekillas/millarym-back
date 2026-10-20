@@ -48,39 +48,46 @@ class UniqueNameMixin:
 
 class CategorySerializer(UniqueNameMixin, serializers.ModelSerializer):
     models_count = serializers.IntegerField(read_only=True, default=0)
+    used = serializers.IntegerField(read_only=True, default=0)
 
     class Meta:
         model = Category
-        fields = ["id", "name", "sort", "active", "models_count"]
+        fields = ["id", "name", "sort", "active", "models_count", "used"]
 
 
 class ProductModelSerializer(PhotoSerializerMixin, UniqueNameMixin, serializers.ModelSerializer):
     category_name = serializers.CharField(source="category.name", read_only=True)
     in_work = serializers.IntegerField(read_only=True, default=0)
+    used = serializers.IntegerField(read_only=True, default=0)
 
     class Meta:
         model = ProductModel
-        fields = ["id", "name", "category", "category_name", "photo", "photo_thumb", "active", "in_work"]
+        fields = ["id", "name", "category", "category_name", "photo", "photo_thumb", "active", "in_work", "used"]
 
 
 class FabricSerializer(PhotoSerializerMixin, UniqueNameMixin, serializers.ModelSerializer):
     in_work = serializers.IntegerField(read_only=True, default=0)
+    used = serializers.IntegerField(read_only=True, default=0)
 
     class Meta:
         model = Fabric
-        fields = ["id", "name", "photo", "photo_thumb", "active", "created_at", "in_work"]
+        fields = ["id", "name", "photo", "photo_thumb", "active", "created_at", "in_work", "used"]
 
 
 class KitOptionSerializer(UniqueNameMixin, serializers.ModelSerializer):
+    used = serializers.IntegerField(read_only=True, default=0)
+
     class Meta:
         model = KitOption
-        fields = ["id", "name", "sort", "active"]
+        fields = ["id", "name", "sort", "active", "used"]
 
 
 class TeamSerializer(UniqueNameMixin, serializers.ModelSerializer):
+    used = serializers.IntegerField(read_only=True, default=0)
+
     class Meta:
         model = Team
-        fields = ["id", "name", "foreman", "sort", "active"]
+        fields = ["id", "name", "foreman", "sort", "active", "used"]
 
 
 class DeadlinesSerializer(serializers.ModelSerializer):

@@ -24,6 +24,8 @@ h2 { margin: 6mm 0 1.5mm; font-size: 10.5pt; font-weight: 600; }
 .rows .k { width: 62mm; color: #222; }
 .rows .v { min-height: 7mm; white-space: pre-line; }
 .photos { margin-top: 2mm; }
+.links { font-size: 9pt; word-break: break-all; }
+.links a { color: #000; }
 .photos img { width: 40mm; height: 30mm; object-fit: cover; margin: 0 2mm 2mm 0; border: 0.4pt solid #999; }
 .sign { margin-top: 10mm; }
 .sign td { padding-right: 8mm; white-space: nowrap; }
@@ -68,6 +70,10 @@ h2 { margin: 6mm 0 1.5mm; font-size: 10.5pt; font-weight: 600; }
   {% if claim.remedy %}<tr><td class="k">Меры по устранению</td><td class="v">{{ claim.remedy }}</td></tr>{% endif %}
   {% if claim.sent_back_at %}<tr><td class="k">Дата отправки покупателю</td><td class="v">{{ claim.sent_back_at|date:"d.m.Y" }}</td></tr>{% endif %}
 </table>
+{% if claim.video_links %}
+<h2>Видео</h2>
+<p class="links">{% for link in claim.video_links %}<a href="{{ link }}">{{ link }}</a><br>{% endfor %}</p>
+{% endif %}
 {% if photos %}
 <h2>Фото</h2>
 <div class="photos">{% for p in photos %}<img src="{{ p }}" alt="">{% endfor %}</div>

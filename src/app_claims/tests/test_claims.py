@@ -123,3 +123,31 @@ class ClaimsTest(Fixtures, TestCase):
         reopened = client.post(f"/api/v1/claims/{a['id']}/reopen/").json()
         self.assertEqual((reopened["state"], reopened["closed_at"], reopened["closed_by"]), ("open", None, None))
         self.assertEqual(reopened["close_note"], "Заменили подлокотник")
+
+    def test_video_links_and_files(self):
+        client = self.client_for(self.manager)
+        claim = client.post("/api/v1/claims/", {"product": "Бали", "video_links": [" https://disk.yandex.ru/i/abc ", "", "https://disk.yandex.ru/i/abc"]}, format="json").json()
+        self.assertEqual(claim["video_links"], ["https://disk.yandex.ru/i/abc"])
+        r = client.patch(f"/api/v1/claims/{claim['id']}/", {"video_links": ["видео у менеджера"]}, format="json")
+        self.assertEqual(r.status_code, 400)
+        self.assertIn("Это не ссылка", r.json()["errors"]["video_links"][0])
+        self.assertTrue(client.get(f"/api/v1/claims/{claim['id']}/pdf/").content.startswith(b"%PDF"))
+
+        docx = SimpleUploadedFile("Ответ на претензию 26-001.docx", b"PK\x03\x04 test", content_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document")
+        r = client.post(f"/api/v1/claims/{claim['id']}/files/", {"file": docx}, format="multipart")
+        self.assertEqual(r.status_code, 201, r.content)
+        doc = r.json()
+        self.assertEqual((doc["name"], doc["created_by"]["name"]), ("Ответ на претензию 26-001.docx", self.manager.short_name))
+        self.assertTrue(doc["url"].endswith(".docx"))
+        self.assertEqual(client.get(f"/api/v1/claims/{claim['id']}/").json()["files"][0]["id"], doc["id"])
+        exe = SimpleUploadedFile("virus.exe", b"MZ", content_type="application/octet-stream")
+        self.assertEqual(client.post(f"/api/v1/claims/{claim['id']}/files/", {"file": exe}, format="multipart").status_code, 400)
+        self.assertEqual(self.client_for(self.storekeeper).delete(f"/api/v1/claims/{claim['id']}/files/{doc['id']}/").status_code, 403)
+
+        from app_claims.models import ClaimFile
+
+        stored = ClaimFile.objects.get(pk=doc["id"]).file
+        storage, name = stored.storage, stored.name
+        self.assertTrue(storage.exists(name))
+        self.assertEqual(client.delete(f"/api/v1/claims/{claim['id']}/files/{doc['id']}/").status_code, 204)
+        self.assertFalse(storage.exists(name))

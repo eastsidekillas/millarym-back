@@ -17,9 +17,16 @@ from app_auth.permissions import ReadOrRight
 from app_reports.pdf import render_pdf
 
 from .blank import build_blank
-from .models import Claim, ClaimPhoto, ClaimState
+from .models import Claim, ClaimFile, ClaimPhoto, ClaimState
 from .queries import filter_claims, stats
-from .serializers import CHOICES, ClaimListSerializer, ClaimPhotoSerializer, ClaimSerializer, CloseSerializer
+from .serializers import (
+    CHOICES,
+    ClaimFileSerializer,
+    ClaimListSerializer,
+    ClaimPhotoSerializer,
+    ClaimSerializer,
+    CloseSerializer,
+)
 
 FILTERS = [
     OpenApiParameter("q", str, description="номер акта, контрагент, изделие, номер изделия, описание"),
@@ -61,7 +68,7 @@ class ClaimViewSet(
         qs = Claim.objects.select_related("manager", "item", "created_by", "updated_by")
         if self.action == "list":
             qs = filter_claims(qs.annotate(photos_count=Count("photos")), self.request.query_params)
-        return qs.prefetch_related("photos")
+        return qs.prefetch_related("photos", "files__created_by")
 
     def get_serializer_class(self):
         return ClaimListSerializer if self.action == "list" else ClaimSerializer
@@ -115,6 +122,29 @@ class ClaimViewSet(
         claim.updated_by = request.user
         claim.save(update_fields=["updated_by", "updated_at"])
         return Response(serializer.data, status=201)
+
+    @extend_schema(request=ClaimFileSerializer, responses=ClaimFileSerializer)
+    @action(detail=True, methods=["post"])
+    def files(self, request, pk=None):
+        claim = self.get_object()
+        serializer = ClaimFileSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        serializer.save(claim=claim, created_by=request.user)
+        claim.updated_by = request.user
+        claim.save(update_fields=["updated_by", "updated_at"])
+        return Response(serializer.data, status=201)
+
+    @extend_schema(responses={204: None})
+    @action(detail=True, methods=["delete"], url_path=r"files/(?P<file_id>\d+)")
+    def delete_file(self, request, pk=None, file_id=None):
+        claim = self.get_object()
+        doc = ClaimFile.objects.filter(claim=claim, pk=file_id).first()
+        if doc is None:
+            raise NotFound("Файл не найден.")
+        if doc.file:
+            doc.file.storage.delete(doc.file.name)
+        doc.delete()
+        return Response(status=204)
 
     @extend_schema(responses={204: None})
     @action(detail=True, methods=["delete"], url_path=r"photos/(?P<photo_id>\d+)")

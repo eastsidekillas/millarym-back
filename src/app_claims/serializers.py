@@ -1,10 +1,13 @@
+import re
+from pathlib import Path
+
 from django.contrib.auth import get_user_model
 from rest_framework import serializers
 
 from app_catalog.serializers import FileUrlField, check_photo_size
 from app_production.models import Item
 
-from .models import CLOSED_STATES, Claim, ClaimPhoto, ClaimState, ClaimType, DefectType, Sender
+from .models import CLOSED_STATES, Claim, ClaimFile, ClaimPhoto, ClaimState, ClaimType, DefectType, Sender
 
 User = get_user_model()
 
@@ -13,8 +16,11 @@ EDITABLE = [
     "package_data", "waybill", "sender", "invoice_price", "customer_shipped_at", "demands",
     "claim_type", "arrived_at", "kit", "sent_back_at",
     "appearance", "research", "defect_type", "remedy",
-    "restore_cost", "finance_note",
+    "restore_cost", "finance_note", "video_links",
 ]
+FILE_TYPES = {".doc", ".docx", ".pdf", ".odt", ".rtf", ".txt", ".xls", ".xlsx", ".ods", ".jpg", ".jpeg", ".png"}
+MAX_FILE_MB = 15
+MAX_LINKS = 20
 
 
 class ClaimPhotoSerializer(serializers.ModelSerializer):
@@ -45,6 +51,34 @@ class ItemLinkField(serializers.PrimaryKeyRelatedField):
         return {"id": value.pk, "number": value.number, "available": value.purged_at is None}
 
 
+class ClaimFileSerializer(serializers.ModelSerializer):
+    file = serializers.FileField(write_only=True)
+    url = serializers.SerializerMethodField()
+    created_by = PersonField(read_only=True)
+
+    class Meta:
+        model = ClaimFile
+        fields = ["id", "file", "name", "url", "size", "created_at", "created_by"]
+        read_only_fields = ["name", "size", "created_at"]
+
+    def get_url(self, obj) -> str:
+        return obj.file.url if obj.file else ""
+
+    def validate_file(self, file):
+        suffix = Path(file.name).suffix.lower()
+        if suffix not in FILE_TYPES:
+            raise serializers.ValidationError("Такой файл не подходит: нужен Word, PDF, Excel или картинка.")
+        if file.size > MAX_FILE_MB * 1024 * 1024:
+            raise serializers.ValidationError(f"Файл больше {MAX_FILE_MB} МБ.")
+        return file
+
+    def create(self, validated_data):
+        file = validated_data["file"]
+        validated_data["name"] = Path(file.name).name[:255]
+        validated_data["size"] = file.size
+        return super().create(validated_data)
+
+
 class ClaimListSerializer(serializers.ModelSerializer):
     manager = PersonField(read_only=True)
     claim_type_label = serializers.CharField(source="get_claim_type_display", read_only=True)
@@ -70,6 +104,7 @@ class ClaimSerializer(serializers.ModelSerializer):
     state_label = serializers.CharField(source="get_state_display", read_only=True)
     closed_by = PersonField(read_only=True)
     photos = ClaimPhotoSerializer(many=True, read_only=True)
+    files = ClaimFileSerializer(many=True, read_only=True)
     created_by = PersonField(read_only=True)
     updated_by = PersonField(read_only=True)
 
@@ -78,9 +113,25 @@ class ClaimSerializer(serializers.ModelSerializer):
         fields = [
             "id", "number", *EDITABLE, "claim_type_label", "defect_type_label", "sender_label",
             "state", "state_label", "closed_at", "closed_by", "close_note",
-            "photos", "created_at", "created_by", "updated_at", "updated_by",
+            "photos", "files", "created_at", "created_by", "updated_at", "updated_by",
         ]
         read_only_fields = ["number", "state", "closed_at", "close_note", "created_at", "updated_at"]
+
+    def validate_video_links(self, links):
+        if not isinstance(links, list):
+            raise serializers.ValidationError("Нужен список ссылок.")
+        cleaned = []
+        for link in links:
+            link = str(link or "").strip()
+            if not link:
+                continue
+            if not re.match(r"^https?://\S+$", link) or len(link) > 500:
+                raise serializers.ValidationError(f"Это не ссылка: «{link[:60]}». Ссылка начинается с http:// или https://")
+            if link not in cleaned:
+                cleaned.append(link)
+        if len(cleaned) > MAX_LINKS:
+            raise serializers.ValidationError(f"Не больше {MAX_LINKS} ссылок.")
+        return cleaned
 
     def validate(self, attrs):
         for key in EDITABLE:

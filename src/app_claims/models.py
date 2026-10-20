@@ -1,3 +1,6 @@
+import uuid
+from pathlib import Path
+
 from django.conf import settings
 from django.db import models, transaction
 from django.utils import timezone
@@ -104,6 +107,8 @@ class Claim(models.Model):
     )
     close_note = models.TextField("чем закончилась", blank=True, default="")
 
+    video_links = models.JSONField("ссылки на видео", default=list, blank=True)
+
     restore_cost = models.DecimalField("расходы по восстановлению", max_digits=10, decimal_places=2, null=True, blank=True)
     finance_note = models.TextField("финансовая часть: пояснение", blank=True, default="")
 
@@ -131,6 +136,29 @@ class Claim(models.Model):
             self.seq = ClaimSequence.next(self.period)
         self.number = f"{self.period % 100:02d}/{self.seq:03d}"
         super().save(*args, **kwargs)
+
+
+def claim_file_path(instance, filename):
+    return f"claims/files/{uuid.uuid4().hex}{Path(filename).suffix.lower()}"
+
+
+class ClaimFile(models.Model):
+    """Документы по рекламации: официальный ответ на претензию и т. п."""
+
+    claim = models.ForeignKey(Claim, models.CASCADE, related_name="files", verbose_name="рекламация")
+    file = models.FileField("файл", upload_to=claim_file_path)
+    name = models.CharField("имя файла", max_length=255)
+    size = models.PositiveIntegerField("размер, байт", default=0)
+    created_at = models.DateTimeField("добавлен", auto_now_add=True)
+    created_by = models.ForeignKey(settings.AUTH_USER_MODEL, models.PROTECT, related_name="+", verbose_name="добавил")
+
+    class Meta:
+        verbose_name = "файл рекламации"
+        verbose_name_plural = "файлы рекламаций"
+        ordering = ["created_at", "id"]
+
+    def __str__(self):
+        return self.name
 
 
 class ClaimPhoto(WithPhoto):
