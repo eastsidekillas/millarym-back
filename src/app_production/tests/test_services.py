@@ -347,3 +347,35 @@ class WarningsTest(ServiceTest):
         self.assertEqual(plain.warnings(created + timedelta(days=60), d), [])
         item.stage = Stage.FG
         self.assertEqual(item.warnings(created + timedelta(days=60), d), [])
+
+
+class ClearItemsTest(Fixtures, TestCase):
+    @classmethod
+    def setUpTestData(cls):
+        cls.make_fixtures()
+
+    def test_clear(self):
+        from io import StringIO
+
+        from django.core.management import call_command
+
+        from app_claims.models import Claim
+
+        [a, b] = s.create_items(self.manager, model=self.model, fabrics=self.fabrics(), qty=2)
+        s.trash(self.director, b.pk)
+        Claim.objects.create(product="x", item=a, created_by=self.manager, updated_by=self.manager)
+        out = StringIO()
+        call_command("clear_items", stdout=out)
+        self.assertIn("ПРОВЕРКА", out.getvalue())
+        self.assertEqual(Item.all_objects.count(), 2)
+
+        call_command("clear_items", "--yes", stdout=StringIO())
+        self.assertEqual(Item.all_objects.count(), 0)
+        claim = Claim.objects.get()
+        self.assertIsNone(claim.item)
+        [c] = s.create_items(self.manager, model=self.model, fabrics=self.fabrics())
+        self.assertTrue(c.number.endswith("/0001"))
+        self.assertTrue(type(self.model).objects.filter(pk=self.model.pk).exists())
+
+        call_command("clear_items", "--claims", "--yes", stdout=StringIO())
+        self.assertFalse(Claim.objects.exists())
