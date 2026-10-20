@@ -248,3 +248,16 @@ class CatalogApiTest(TestCase):
         self.assertEqual(director.delete(f"/api/v1/teams/{team.pk}/").status_code, 204)
         kit = KitOption.objects.create(name="Опечатка")
         self.assertEqual(director.delete(f"/api/v1/kit-options/{kit.pk}/").status_code, 204)
+
+    def test_model_kit_options(self):
+        client = self.as_user("yuldasheva")
+        sofas = Category.objects.get(name="Прямые диваны")
+        munich = ProductModel.objects.create(name="Мюнхен", category=sofas)
+        r = client.patch(f"/api/v1/models/{munich.pk}/", {"kit_options": [" Подушки-подголовники  3 шт. ", "", "подушки-подголовники 3 шт.", "Без подлокотников"]}, format="json")
+        self.assertEqual(r.json()["kit_options"], ["Подушки-подголовники 3 шт.", "Без подлокотников"])
+        r = client.patch(f"/api/v1/models/{munich.pk}/", {"kit_options": ["Подушки, 3 шт."]}, format="json")
+        self.assertEqual(r.status_code, 400)
+        self.assertIn("Без запятых", r.json()["errors"]["kit_options"][0])
+        r = client.patch(f"/api/v1/models/{munich.pk}/", {"name": "Мюнхен-1"}, format="multipart")
+        self.assertEqual(r.json()["kit_options"], ["Подушки-подголовники 3 шт.", "Без подлокотников"])
+        self.assertEqual(client.patch(f"/api/v1/models/{munich.pk}/", {"kit_options": []}, format="json").json()["kit_options"], [])

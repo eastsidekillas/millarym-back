@@ -59,6 +59,7 @@ class ProductModel(WithPhoto):
     name = models.CharField("название", max_length=150)
     category = models.ForeignKey(Category, models.PROTECT, related_name="models", verbose_name="категория")
     active = models.BooleanField("активна", default=True)
+    kit_options = models.JSONField("своя комплектация", default=list, blank=True)
 
     class Meta:
         ordering = ["name"]

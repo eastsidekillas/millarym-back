@@ -55,14 +55,33 @@ class CategorySerializer(UniqueNameMixin, serializers.ModelSerializer):
         fields = ["id", "name", "sort", "active", "models_count", "used"]
 
 
+MAX_KIT_OPTIONS = 30
+
+
 class ProductModelSerializer(PhotoSerializerMixin, UniqueNameMixin, serializers.ModelSerializer):
     category_name = serializers.CharField(source="category.name", read_only=True)
     in_work = serializers.IntegerField(read_only=True, default=0)
     used = serializers.IntegerField(read_only=True, default=0)
+    kit_options = serializers.ListField(
+        child=serializers.CharField(max_length=120, allow_blank=True), required=False, max_length=MAX_KIT_OPTIONS
+    )
+
+    def validate_kit_options(self, options):
+        cleaned = []
+        for option in options:
+            option = " ".join(option.split())
+            if not option:
+                continue
+            # в «Комплектации» изделия пункты разделяются запятой
+            if "," in option:
+                raise serializers.ValidationError(f"Без запятых: «{option}». Например, «Подушки-подголовники 3 шт.»")
+            if option.lower() not in (o.lower() for o in cleaned):
+                cleaned.append(option)
+        return cleaned
 
     class Meta:
         model = ProductModel
-        fields = ["id", "name", "category", "category_name", "photo", "photo_thumb", "active", "in_work", "used"]
+        fields = ["id", "name", "category", "category_name", "photo", "photo_thumb", "active", "kit_options", "in_work", "used"]
 
 
 class FabricSerializer(PhotoSerializerMixin, UniqueNameMixin, serializers.ModelSerializer):
