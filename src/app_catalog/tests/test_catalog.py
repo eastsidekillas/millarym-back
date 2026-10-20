@@ -168,10 +168,8 @@ class CatalogApiTest(TestCase):
         r = self.as_user("postnikova").get(f"/api/v1/models/?category={beds.pk}").json()
         self.assertEqual([m["name"] for m in r], ["Кровать Ницца"])
 
-    def test_no_delete(self):
+    def test_hide(self):
         fabric = Fabric.objects.create(name="Т")
-        r = self.as_user("yuldasheva").delete(f"/api/v1/fabrics/{fabric.pk}/")
-        self.assertEqual(r.status_code, 405)
         r = self.as_user("yuldasheva").patch(f"/api/v1/fabrics/{fabric.pk}/", {"active": False}, format="json")
         self.assertFalse(r.json()["active"])
 
@@ -213,3 +211,40 @@ class CatalogApiTest(TestCase):
         client = self.as_user("yuldasheva")
         self.assertEqual(client.patch("/api/v1/deadlines/", {"trash_days": 0}, format="json").status_code, 400)
         self.assertEqual(client.patch("/api/v1/deadlines/", {"trash_days": 400}, format="json").status_code, 400)
+
+    def test_delete_only_unused(self):
+        from app_catalog.models import KitOption, Team
+        from app_production import services as s
+
+        manager = User.objects.get(username="okisheva")
+        director = self.as_user("yuldasheva")
+        sofas = Category.objects.get(name="Прямые диваны")
+        used_model = ProductModel.objects.create(name="Бостон", category=sofas)
+        spare_model = ProductModel.objects.create(name="Опечатка", category=sofas)
+        r = self.as_user("kotomtseva").post("/api/v1/fabrics/", {"name": "Лишняя", "photo": image()}, format="multipart")
+        spare_fabric = Fabric.objects.get(pk=r.json()["id"])
+        used_fabric = Fabric.objects.create(name="Велюр")
+        team = Team.objects.create(name="Бригада 1")
+        [item] = s.create_items(manager, model=used_model, fabrics=[{"slot": "main", "fabric": used_fabric}])
+        s.trash(User.objects.get(username="yuldasheva"), item.pk)
+
+        models = {m["name"]: m for m in director.get("/api/v1/models/").json()}
+        self.assertEqual((models["Бостон"]["used"], models["Опечатка"]["used"]), (1, 0))
+        r = director.delete(f"/api/v1/models/{used_model.pk}/")
+        self.assertEqual(r.status_code, 409)
+        self.assertIn("Есть в 1 изд.", r.json()["detail"])
+        self.assertEqual(director.delete(f"/api/v1/models/{spare_model.pk}/").status_code, 204)
+        self.assertFalse(ProductModel.objects.filter(pk=spare_model.pk).exists())
+
+        self.assertEqual(self.as_user("okisheva").delete(f"/api/v1/fabrics/{spare_fabric.pk}/").status_code, 403)
+        self.assertEqual(self.as_user("kotomtseva").delete(f"/api/v1/fabrics/{used_fabric.pk}/").status_code, 409)
+        storage, paths = spare_fabric.photo.storage, (spare_fabric.photo.name, spare_fabric.photo_thumb.name)
+        self.assertEqual(self.as_user("kotomtseva").delete(f"/api/v1/fabrics/{spare_fabric.pk}/").status_code, 204)
+        self.assertFalse(any(storage.exists(p) for p in paths))
+
+        self.assertEqual(director.delete(f"/api/v1/categories/{sofas.pk}/").status_code, 409)
+        empty = Category.objects.create(name="Пустая")
+        self.assertEqual(director.delete(f"/api/v1/categories/{empty.pk}/").status_code, 204)
+        self.assertEqual(director.delete(f"/api/v1/teams/{team.pk}/").status_code, 204)
+        kit = KitOption.objects.create(name="Опечатка")
+        self.assertEqual(director.delete(f"/api/v1/kit-options/{kit.pk}/").status_code, 204)
