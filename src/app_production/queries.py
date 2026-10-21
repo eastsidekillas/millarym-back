@@ -56,16 +56,12 @@ def search_q(text: str) -> Q:
     if FULL_NUMBER.match(text):
         year, seq = text.split("/")
         return Q(period=2000 + int(year), seq=int(seq))
-    q = (
-        Q(model__name__icontains=text)
-        | Q(custom_name__icontains=text)
-        | Q(extra__icontains=text)
-        | Q(reserve__icontains=text)
-        | Q(comment__icontains=text)
-        | Q(fabrics__fabric__name__icontains=text)
-        | Q(legacy_number__icontains=text)
-        | Q(team__name__icontains=text)
-    )
+    # с начала слова: «бали» находит «Бали», но не «Шабалин»; \m — начало слова в регулярках PostgreSQL
+    word = (r"\m" if text[:1].isalnum() else "") + re.escape(text)
+    fields = ["model__name", "custom_name", "extra", "reserve", "comment", "fabrics__fabric__name", "team__name"]
+    q = Q(legacy_number__icontains=text)
+    for field in fields:
+        q |= Q(**{f"{field}__iregex": word})
     if SHORT_NUMBER.match(text):
         q |= Q(seq=int(text))
     return q

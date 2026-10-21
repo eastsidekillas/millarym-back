@@ -160,6 +160,11 @@ class ItemViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, viewsets.Gen
         return self.detail_response(services.trash(request.user, self.item_id(pk)))
 
     @extend_schema(request=None, responses=ItemDetailSerializer)
+    @action(detail=True, methods=["post"], url_path="ack-changes")
+    def ack_changes(self, request, pk=None):
+        return self.detail_response(services.ack_changes(request.user, self.item_id(pk)))
+
+    @extend_schema(request=None, responses=ItemDetailSerializer)
     @action(detail=True, methods=["post"])
     def cancel(self, request, pk=None):
         return self.detail_response(services.cancel_order(request.user, self.item_id(pk)))

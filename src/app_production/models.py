@@ -103,6 +103,8 @@ class Item(models.Model):
     purged_at = models.DateTimeField("удалено из Корзины окончательно", null=True, blank=True, editable=False)
 
     passport_printed_at = models.DateTimeField("паспорт напечатан", null=True, blank=True)
+    # меняли то, что важно цеху (название, комплектация, ткани, индивидуальный); сбрасывается «Изменения учтены»
+    changed_at = models.DateTimeField("изменено, не учтено", null=True, blank=True)
 
     objects = ItemManager()
     all_objects = models.Manager()

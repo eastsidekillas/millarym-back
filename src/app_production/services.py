@@ -245,6 +245,18 @@ def trash(user, item_id: int) -> Item:
 
 
 @transaction.atomic
+def ack_changes(user, item_id: int) -> Item:
+    """Цех увидел правку изделия — отметка «изменено» в списке снимается."""
+    item = lock(item_id)
+    if item.changed_at is None:
+        return item
+    item.changed_at = None
+    item.save(update_fields=["changed_at"])
+    log(item, user, EventKind.EDIT, "Изменения учтены", field="ack")
+    return item
+
+
+@transaction.atomic
 def cancel_order(user, item_id: int) -> Item:
     """Клиент передумал до кроя: изделие уходит в Корзину с причиной «Заказ снят»."""
     require(user, "edit")
@@ -381,6 +393,7 @@ def update_item(
         old = (item.model_id, item.custom_name, item.title)
         item.model, item.custom_name = new_model, new_custom
         if (item.model_id, item.custom_name) != old[:2]:
+            item.changed_at = timezone.now()
             item.save()
             title = item.title if item.model_id else f"{item.title} (вне справочника)"
             log(item, user, EventKind.EDIT, f"Название: {old[2]} → {title}", field="name", old=old[2], new=item.title)
@@ -403,6 +416,8 @@ def update_item(
         item.due_at = due_date(created, Deadlines.get()) if item.indiv else None
 
     if changes:
+        if any(f != "comment" for f, _, _ in changes):
+            item.changed_at = timezone.now()
         item.save()
         for field, old, value in changes:
             log(
@@ -424,6 +439,8 @@ def update_item(
             ItemFabric.objects.bulk_create(
                 [ItemFabric(item=item, slot=f["slot"], fabric=f["fabric"], meters=f.get("meters")) for f in fabrics]
             )
+            item.changed_at = timezone.now()
+            item.save(update_fields=["changed_at"])
             log(item, user, EventKind.EDIT, f"Ткани: {before} → {after}", field="fabrics", old=before, new=after)
     return item
 

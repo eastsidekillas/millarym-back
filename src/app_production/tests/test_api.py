@@ -112,6 +112,20 @@ class ListTest(ApiTest):
         rows = self.as_user(self.manager).get("/api/v1/items/", {"q": "ромашка"}).json()["results"]
         self.assertEqual([r["number"] for r in rows], [a.number])
 
+    @skipUnless(connection.vendor == "postgresql", "начало слова — регулярка PostgreSQL")
+    def test_search_from_word_start(self):
+        [a] = self.make(extra="Бали левый")
+        self.make(reserve="Шабалин Шадринск")
+        [c] = self.make(comment="ткань kioto dove (4)")
+        client = self.as_user(self.manager)
+
+        def found(text):
+            return [r["number"] for r in client.get("/api/v1/items/", {"q": text}).json()["results"]]
+
+        self.assertEqual(found("бали"), [a.number])
+        self.assertEqual(found("(4)"), [c.number])
+        self.assertEqual(found("dove (4"), [c.number])
+
     def test_search_includes_trash_last(self):
         [a] = self.make(reserve="Петров")
         [b] = self.make()
@@ -337,3 +351,29 @@ class OrderingTest(ApiTest):
         self.assertEqual([r["number"] for r in rows], [o2[0].number, o1[0].number])
         rows = client.get("/api/v1/items/?stage=cut&ordering=recent").json()["results"]
         self.assertEqual(rows[0]["number"], a1.number)
+
+
+class ChangedMarkTest(ApiTest):
+    def test_mark_on_important_edits_only(self):
+        [item] = self.make(reserve="ИП Петров")
+        client = self.as_user(self.manager)
+        url = f"/api/v1/items/{item.pk}/"
+        client.patch(url, {"comment": "позвонить"}, format="json")
+        self.assertIsNone(client.get(url).json()["changed_at"])
+        client.post(f"{url}reserve/", {"reserve": "ООО Агат"}, format="json")
+        self.assertIsNone(client.get(url).json()["changed_at"])
+
+        client.patch(url, {"extra": "левый угол"}, format="json")
+        data = client.get(url).json()
+        self.assertIsNotNone(data["changed_at"])
+        listed = client.get("/api/v1/items/?stage=orders").json()["results"][0]
+        self.assertIsNotNone(listed["changed_at"])
+
+        data = self.as_user(self.cutter).post(f"{url}ack-changes/").json()
+        self.assertIsNone(data["changed_at"])
+        self.assertEqual(data["events"][0]["text"], "Изменения учтены")
+
+        client.patch(url, {"fabrics": [{"slot": "main", "fabric": self.leather.pk, "meters": "11"}]}, format="json")
+        self.assertIsNotNone(client.get(url).json()["changed_at"])
+        client.patch(url, {"model": self.other_model.pk}, format="json")
+        self.assertIsNotNone(client.get(url).json()["changed_at"])
