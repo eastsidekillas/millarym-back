@@ -118,3 +118,32 @@ class BackupsTest(Fixtures, TestCase):
         alerts = self.client.get("/api/v1/backups/").json()["alerts"]
         self.assertEqual(len(alerts), 1)
         self.assertIn("больше суток назад", alerts[0])
+
+    def test_schedule(self):
+        self.assertEqual(self.client.put("/api/v1/backups/schedule/", {"at": "04:15", "keep_days": 30}).status_code, 409)
+        self.beat()
+        self.assertEqual(self.client.put("/api/v1/backups/schedule/", {"at": "25:00", "keep_days": 30}).status_code, 400)
+        self.assertEqual(self.client.put("/api/v1/backups/schedule/", {"at": "04:15", "keep_days": 0}).status_code, 400)
+        data = self.client.put("/api/v1/backups/schedule/", {"at": "04:15", "keep_days": 30}).json()
+        self.assertEqual((data["at"], data["keep_days"]), ("04:15", 30))
+        self.assertEqual((self.root / ".control" / "settings").read_text(), "at=04:15\nkeep=30\n")
+
+    def test_upload_from_file(self):
+        from django.core.files.uploadedfile import SimpleUploadedFile
+
+        self.beat()
+        bad = self.client.post("/api/v1/backups/upload/", {"db": SimpleUploadedFile("x.sql", b"1")}, format="multipart")
+        self.assertEqual(bad.status_code, 400)
+        r = self.client.post(
+            "/api/v1/backups/upload/",
+            {
+                "db": SimpleUploadedFile("milarum_db_2026-10-20_0230.dump", b"PGDMP"),
+                "media": SimpleUploadedFile("milarum_media_2026-10-20_0230.tar.gz", b"gz"),
+            },
+            format="multipart",
+        )
+        self.assertEqual(r.status_code, 202)
+        [task] = store.tasks()
+        self.assertEqual((task["action"], task["name"]), ("import", "milarum_db_2026-10-20_0230.dump"))
+        self.assertEqual((self.root / ".control" / "incoming" / task["db"]).read_bytes(), b"PGDMP")
+        self.assertTrue((self.root / ".control" / "incoming" / task["media"]).is_file())

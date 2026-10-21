@@ -2,6 +2,7 @@ from django.conf import settings
 from django.http import FileResponse, Http404, HttpResponse
 from drf_spectacular.utils import extend_schema
 from rest_framework import status
+from rest_framework.parsers import MultiPartParser
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -20,8 +21,7 @@ def overview() -> dict:
         "alive": store.alive(),
         "alerts": store.alerts(found),
         "history": store.history(),
-        "schedule": settings.BACKUP_AT,
-        "keep_days": settings.BACKUP_KEEP_DAYS,
+        **store.schedule(),
     }
 
 
@@ -46,6 +46,51 @@ class BackupListView(APIView):
         if refused:
             return refused
         store.enqueue("backup", request.user.short_name)
+        return Response(overview(), status=status.HTTP_202_ACCEPTED)
+
+
+class BackupScheduleView(APIView):
+    permission_classes = [HasRight("backups")]
+
+    @extend_schema(request=dict, responses=dict)
+    def put(self, request):
+        at = str(request.data.get("at") or "").strip()
+        try:
+            keep = int(request.data.get("keep_days"))
+        except (TypeError, ValueError):
+            keep = 0
+        low, high = store.KEEP_RANGE
+        if not store.TIME.match(at):
+            return Response({"detail": "Время — в виде ЧЧ:ММ, например 02:30."}, status=400)
+        if not low <= keep <= high:
+            return Response({"detail": f"Хранить копии можно от {low} до {high} дней."}, status=400)
+        if not store.control().is_dir():
+            return Response({"detail": "Служба копий ещё не запускалась — проверьте контейнер backup."}, status=409)
+        store.save_schedule(at, keep)
+        return Response(overview())
+
+
+class BackupUploadView(APIView):
+    """Копия с другого сервера (или скачанная раньше): файлы проверит служба копий и добавит в список."""
+
+    permission_classes = [HasRight("backups")]
+    parser_classes = [MultiPartParser]
+
+    @extend_schema(request={"multipart/form-data": dict}, responses=dict)
+    def post(self, request):
+        db = request.FILES.get("db")
+        media = request.FILES.get("media")
+        if not db or not db.name.lower().endswith(".dump"):
+            return Response({"detail": "Нужен файл базы — .dump из «Резервных копий»."}, status=400)
+        if media and not media.name.lower().endswith((".tar.gz", ".tgz")):
+            return Response({"detail": "Фото — архив .tar.gz из «Резервных копий»."}, status=400)
+        refused = refuse_if_busy()
+        if refused:
+            return refused
+        extra = {"db": store.receive(db, "db.dump"), "name": store.safe(db.name, 80)}
+        if media:
+            extra["media"] = store.receive(media, "media.tar.gz")
+        store.enqueue("import", request.user.short_name, **extra)
         return Response(overview(), status=status.HTTP_202_ACCEPTED)
 
 

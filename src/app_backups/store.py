@@ -24,6 +24,8 @@ MAINTENANCE_TEXT = "Идёт восстановление базы из резе
 HEARTBEAT_STALE = timedelta(minutes=2)
 COPY_STALE = timedelta(hours=26)
 SAFE_BY = re.compile(r"[^\w .\-]", re.UNICODE)
+TIME = re.compile(r"^([01]\d|2[0-3]):[0-5]\d$")
+KEEP_RANGE = (1, 90)
 
 
 def root() -> Path:
@@ -126,13 +128,48 @@ def alerts(found: list[dict] | None = None) -> list[str]:
     return out
 
 
-def enqueue(action: str, by: str, stamp: str = "") -> None:
+def safe(text: str, limit: int = 60) -> str:
+    return SAFE_BY.sub("", text)[:limit]
+
+
+def enqueue(action: str, by: str, stamp: str = "", **extra: str) -> None:
     folder = control() / "queue"
     folder.mkdir(parents=True, exist_ok=True)
     name = f"{time.time_ns()}.task"
     part = folder / f"{name}.part"
-    part.write_text(f"action={action}\nstamp={stamp}\nby={SAFE_BY.sub('', by)[:60]}\n", encoding="utf-8")
+    lines = {"action": action, "stamp": stamp, "by": safe(by), **extra}
+    part.write_text("".join(f"{k}={v}\n" for k, v in lines.items()), encoding="utf-8")
     part.rename(folder / name)
+
+
+def schedule() -> dict:
+    """Время ночной копии и срок хранения: поменяли на странице — лежат в .control/settings, иначе из окружения."""
+    data = _read_kv(control() / "settings")
+    at = data.get("at", "")
+    keep = data.get("keep", "")
+    return {
+        "at": at if TIME.match(at) else settings.BACKUP_AT,
+        "keep_days": int(keep) if keep.isdigit() else settings.BACKUP_KEEP_DAYS,
+    }
+
+
+def save_schedule(at: str, keep_days: int) -> None:
+    folder = control()
+    part = folder / "settings.part"
+    part.write_text(f"at={at}\nkeep={keep_days}\n", encoding="utf-8")
+    part.rename(folder / "settings")
+
+
+def receive(upload, name: str) -> str:
+    """Загруженный файл — в .control/incoming; проверит и переложит к копиям служба копий."""
+    folder = control() / "incoming"
+    folder.mkdir(parents=True, exist_ok=True)
+    target = folder / f"{time.time_ns()}_{name}"
+    with open(target.with_suffix(target.suffix + ".part"), "wb") as out:
+        for chunk in upload.chunks():
+            out.write(chunk)
+    target.with_suffix(target.suffix + ".part").rename(target)
+    return target.name
 
 
 def in_maintenance() -> bool:

@@ -1,9 +1,18 @@
 from django.urls import path
 
-from .views import BackupDownloadView, BackupListView, BackupRestoreView, MaintenanceView
+from .views import (
+    BackupDownloadView,
+    BackupListView,
+    BackupRestoreView,
+    BackupScheduleView,
+    BackupUploadView,
+    MaintenanceView,
+)
 
 urlpatterns = [
     path("backups/", BackupListView.as_view(), name="backups"),
+    path("backups/schedule/", BackupScheduleView.as_view(), name="backup-schedule"),
+    path("backups/upload/", BackupUploadView.as_view(), name="backup-upload"),
     path("backups/<str:stamp>/restore/", BackupRestoreView.as_view(), name="backup-restore"),
     path("backups/<str:stamp>/<str:part>/", BackupDownloadView.as_view(), name="backup-download"),
     path("maintenance/", MaintenanceView.as_view(), name="maintenance"),
