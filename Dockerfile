@@ -33,4 +33,5 @@ ENV MEDIA_ROOT=/app/media
 RUN install -o appuser -g appuser -d $MEDIA_ROOT
 USER appuser
 EXPOSE 8000/tcp
-CMD ["gunicorn", "--bind=0.0.0.0:8000", "--workers=3", "millarym_core.wsgi"]
+# --timeout: загрузка копии из файла (сотни МБ) перекладывается на диск дольше 30 с по умолчанию
+CMD ["gunicorn", "--bind=0.0.0.0:8000", "--workers=3", "--timeout=180", "millarym_core.wsgi"]

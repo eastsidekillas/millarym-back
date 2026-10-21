@@ -14,9 +14,11 @@ RIGHTS: dict[str, str] = {
     "fabrics": "Добавлять и менять ткани",
     "catalog": "Вести справочники: модели, категории, комплектация, бригады, сроки",
     "claims": "Вести рекламации",
+    "backups": "Резервные копии базы: делать, скачивать, восстанавливать",
 }
 
-ALL = list(RIGHTS)
+# копии и восстановление — только у отдельной роли «Сисадмин»
+ALL = [code for code in RIGHTS if code != "backups"]
 
 ROLES: dict[str, list[str]] = {
     "Директор": ALL,
@@ -27,6 +29,7 @@ ROLES: dict[str, list[str]] = {
     "Менеджер": ["edit", "reserve", "claims"],
     "Мастер мягкого цеха": ["move_cover_work", "move_work_fg", "return_to_work", "claims"],
     "Кладовщик": ["ship", "trash", "restore"],
+    "Сисадмин": ["backups"],
 }
 
 USERS: list[tuple[str, str, str, str]] = [

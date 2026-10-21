@@ -8,6 +8,10 @@ x-common-variables: &common-variables
   DATABASE_PORT: 5432
   STATIC_ROOT: /app/static
   MEDIA_ROOT: /app/media
+  BACKUP_ROOT: /backups
+  BACKUP_ACCEL: /_backups/
+  BACKUP_AT: "02:30"
+  BACKUP_KEEP_DAYS: "14"
 
 services:
   app:
@@ -16,6 +20,8 @@ services:
     environment: *common-variables
     volumes:
       - media:/app/media
+      # копии читает и ставит задания службе копий (страница «Резервные копии»)
+      - ${BACKUP_DIR:-./backups}:/backups
     depends_on:
       postgres:
         condition: service_started
@@ -61,7 +67,8 @@ services:
       BACKUP_KEEP_DAYS: "14"
     volumes:
       - ./deploy/backup.sh:/backup.sh:ro
-      - media:/media:ro
+      # без :ro — при восстановлении фото возвращаются из архива
+      - media:/media
       - ${BACKUP_DIR:-./backups}:/backups
     entrypoint: ["/bin/sh", "/backup.sh"]
     depends_on:
@@ -83,6 +90,8 @@ services:
     volumes:
       - static:/app/static
       - media:/app/media
+      # скачивание копий: приложение проверяет право и отдаёт X-Accel-Redirect
+      - ${BACKUP_DIR:-./backups}:/backups:ro
     ports:
       - "8000:80"
     depends_on:

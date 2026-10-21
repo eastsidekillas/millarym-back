@@ -34,6 +34,7 @@ INSTALLED_APPS = [
     "app_production",
     "app_reports",
     "app_claims",
+    "app_backups",
 ]
 
 MIDDLEWARE = [
@@ -46,6 +47,7 @@ MIDDLEWARE = [
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
     "axes.middleware.AxesMiddleware",
+    "app_backups.middleware.MaintenanceMiddleware",
 ]
 
 AUTHENTICATION_BACKENDS = [
@@ -161,6 +163,12 @@ STATIC_ROOT = os.getenv("STATIC_ROOT", BASE_DIR / "static")
 
 MEDIA_ROOT = os.getenv("MEDIA_ROOT", BASE_DIR / "media")
 MEDIA_URL = os.getenv("MEDIA_URL", "/media/")
+
+# папка копий — общая с контейнером backup (deploy/backup.sh); BACKUP_ACCEL — внутренний адрес nginx для скачивания
+BACKUP_ROOT = os.getenv("BACKUP_ROOT", BASE_DIR.parent / "backups")
+BACKUP_ACCEL = os.getenv("BACKUP_ACCEL", "")
+BACKUP_AT = os.getenv("BACKUP_AT", "02:30")
+BACKUP_KEEP_DAYS = int(os.getenv("BACKUP_KEEP_DAYS", "14"))
 
 SITE_URL = config("SITE_URL", default="http://localhost:4200")
 
