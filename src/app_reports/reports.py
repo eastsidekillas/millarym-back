@@ -321,6 +321,7 @@ def no_fabric(params: dict) -> Result:
                 {
                     "number": i.number,
                     "item": item_title(i),
+                    "fabrics": fabrics_text(i, meters=True),
                     "reserve": i.reserve,
                     "created": fmt_date(i.created_at),
                     "days": str(days),
@@ -332,7 +333,10 @@ def no_fabric(params: dict) -> Result:
     return Result(
         "Заказы, на которые не пришла ткань",
         f"Просрок считается только у индивидуальных: больше {d.fabric_days} дн.",
-        [COL_NUMBER, COL_ITEM, COL_RESERVE, COL_CREATED, Column("days", "Ждём, дн.", 10, "number"), Column("late", "Срок", 14)],
+        [
+            COL_NUMBER, COL_ITEM, COL_FABRICS, COL_RESERVE, COL_CREATED,
+            Column("days", "Ждём, дн.", 10, "number"), Column("late", "Срок", 14),
+        ],
         rows,
         filename=f"Не пришла ткань {today_label()}",
     )
