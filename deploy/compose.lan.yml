@@ -1,0 +1,8 @@
+# Сервер внутри сети завода, без домена и HTTPS: программа открывается по http://IP-сервера.
+# Запуск: docker compose -f docker-compose.yml -f deploy/compose.lan.yml up -d --build
+services:
+  frontend:
+    ports: !override
+      - "80:80"
+  postgres:
+    ports: !reset []

@@ -56,6 +56,11 @@ curl -fsSL https://raw.githubusercontent.com/eastsidekillas/millarym-front/main/
 Settings → Deploy keys (только чтение) и запустить скрипт ещё раз. Обновить сервер — тот же запуск:
 `bash /opt/millarym/millarym-front/deploy/server-setup.sh test.chillgate.cc`. Лог — `/opt/millarym/deploy.log`.
 
+Внутри сети завода, без домена: вместо домена — постоянный IP сервера, например `bash server-setup.sh 192.168.1.50`.
+Тогда без Caddy и HTTPS (`deploy/compose.lan.yml`, порт 80), куки без флага Secure, программа — `http://192.168.1.50`,
+QR-коды паспортов ведут туда же. Если на сервере есть `/srv/backups` (отдельный диск), скрипт пишет ночные копии туда
+(`BACKUP_DIR` в `.env`).
+
 ## Сервер (Docker)
 
 Рядом должны лежать оба репозитория: `millarym/millarym-back` и `millarym/millarym-front`.
