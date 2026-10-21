@@ -71,7 +71,7 @@ class ItemSerializer(serializers.ModelSerializer):
             "indiv", "indiv_note", "due_at", "warnings",
             "fabrics", "manager", "created_at",
             "trashed_at", "trash_reason", "trash_reason_label", "purge_at",
-            "passport_printed_at",
+            "passport_printed_at", "changed_at",
         ]
 
     @extend_schema_field(ItemFabricSerializer(many=True))
