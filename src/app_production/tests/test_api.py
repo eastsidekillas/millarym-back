@@ -112,6 +112,20 @@ class ListTest(ApiTest):
         rows = self.as_user(self.manager).get("/api/v1/items/", {"q": "ромашка"}).json()["results"]
         self.assertEqual([r["number"] for r in rows], [a.number])
 
+    @skipUnless(connection.vendor == "postgresql", "начало слова — регулярка PostgreSQL")
+    def test_search_from_word_start(self):
+        [a] = self.make(extra="Бали левый")
+        self.make(reserve="Шабалин Шадринск")
+        [c] = self.make(comment="ткань kioto dove (4)")
+        client = self.as_user(self.manager)
+
+        def found(text):
+            return [r["number"] for r in client.get("/api/v1/items/", {"q": text}).json()["results"]]
+
+        self.assertEqual(found("бали"), [a.number])
+        self.assertEqual(found("(4)"), [c.number])
+        self.assertEqual(found("dove (4"), [c.number])
+
     def test_search_includes_trash_last(self):
         [a] = self.make(reserve="Петров")
         [b] = self.make()
