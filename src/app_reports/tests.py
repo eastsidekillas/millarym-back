@@ -58,6 +58,13 @@ class ReportsTest(Fixtures, TestCase):
         self.assertEqual(totals, {"Всего изделий": "3", "В резерве": "1", "Свободных": "2"})
         self.assertEqual(self.client.get("/api/v1/reports/revision/xlsx/").status_code, 200)
 
+    def test_no_fabric_shows_fabrics(self):
+        [o] = self.make(reserve="ИП Петров")
+        self.make()
+        [row] = self.client.get("/api/v1/reports/no-fabric/").json()["rows"]
+        self.assertEqual(row["number"], o.number)
+        self.assertIn("Основа: ", row["cells"]["fabrics"])
+
     def test_reserved_groups_and_repeats(self):
         a, b = self.make(reserve="ИП Петров", qty=2)
         [c] = self.make(reserve="ООО Диван")
