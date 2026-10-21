@@ -164,5 +164,9 @@ class BulkMoveSerializer(MoveSerializer):
     ids = serializers.ListField(child=serializers.IntegerField(min_value=1), min_length=1, max_length=500)
 
 
+class UnmarkSerializer(serializers.Serializer):
+    mark = serializers.ChoiceField(choices=["fabric_arrived", "sew", "cover_ready"])
+
+
 class ReserveSerializer(serializers.Serializer):
     reserve = serializers.CharField(max_length=300, allow_blank=True)

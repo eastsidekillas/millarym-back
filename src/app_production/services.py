@@ -318,6 +318,35 @@ def _mark(user, item_id: int, stage: str, field: str, kind: str, text: str) -> I
     return item
 
 
+MARKS = {
+    "fabric_arrived": (Stage.ORDERS, "fabric_arrived_at", EventKind.FABRIC, "Ткань пришла"),
+    "sew": (Stage.CUT, "sew_at", EventKind.SEW, "Выдано в шитьё"),
+    "cover_ready": (Stage.CUT, "cover_ready_at", EventKind.COVER_READY, "Отшит"),
+}
+
+
+@transaction.atomic
+def unmark(user, item_id: int, mark: str) -> Item:
+    """Снять отметку, поставленную по ошибке, пока изделие на том же этапе."""
+    if mark not in MARKS:
+        raise ActionError("Неизвестная отметка.")
+    stage, field, kind, text = MARKS[mark]
+    require(user, "marks")
+    item = lock(item_id)
+    not_in_trash(item)
+    if item.stage != stage:
+        raise ActionError(f"Снять «{text}» можно только на этапе «{stage_label(stage)}».")
+    if not getattr(item, field):
+        raise ActionError(f"У {item.number} не отмечено «{text}».")
+    if mark == "sew" and item.cover_ready_at:
+        raise ActionError("Сначала снимите отметку «Отшит».")
+    was = getattr(item, field)
+    setattr(item, field, None)
+    item.save()
+    log(item, user, kind, f"Отметка «{text}» снята (была {was:%d.%m.%y})", undo=True)
+    return item
+
+
 @transaction.atomic
 def mark_fabric_arrived(user, item_id: int) -> Item:
     return _mark(user, item_id, Stage.ORDERS, "fabric_arrived_at", EventKind.FABRIC, "Ткань пришла")

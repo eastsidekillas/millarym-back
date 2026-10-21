@@ -233,6 +233,25 @@ class MarksTest(ServiceTest):
         s.mark_cover_ready(self.cutter, item.pk)
         self.assertEqual(self.kinds(Item.objects.get(pk=item.pk))[1:], [EventKind.SEW, EventKind.COVER_READY])
 
+    def test_unmark_mistake(self):
+        [ordered] = self.create(reserve="Х")
+        s.mark_fabric_arrived(self.cutter, ordered.pk)
+        item = s.unmark(self.cutter, ordered.pk, "fabric_arrived")
+        self.assertIsNone(item.fabric_arrived_at)
+        self.assertIn("снята", item.events.order_by("-id").first().text)
+        with self.assertRaisesMessage(ActionError, "не отмечено"):
+            s.unmark(self.cutter, ordered.pk, "fabric_arrived")
+
+        [cut] = self.create()
+        s.mark_cover_ready(self.cutter, cut.pk)
+        with self.assertRaisesMessage(ActionError, "«Отшит»"):
+            s.unmark(self.cutter, cut.pk, "sew")
+        s.unmark(self.cutter, cut.pk, "cover_ready")
+        item = s.unmark(self.cutter, cut.pk, "sew")
+        self.assertEqual((item.sew_at, item.cover_ready_at), (None, None))
+        with self.assertRaises(NoRight):
+            s.unmark(self.manager, cut.pk, "sew")
+
 
 class ReserveTest(ServiceTest):
     def test_reserve_lifecycle(self):
