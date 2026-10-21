@@ -25,6 +25,7 @@ from .serializers import (
     ItemUpdateSerializer,
     MoveSerializer,
     ReserveSerializer,
+    UnmarkSerializer,
 )
 
 
@@ -142,6 +143,12 @@ class ItemViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, viewsets.Gen
     @action(detail=True, methods=["post"], url_path="cover-ready")
     def cover_ready(self, request, pk=None):
         return self.detail_response(services.mark_cover_ready(request.user, self.item_id(pk)))
+
+    @extend_schema(request=UnmarkSerializer, responses=ItemDetailSerializer)
+    @action(detail=True, methods=["post"])
+    def unmark(self, request, pk=None):
+        data = self.valid(UnmarkSerializer)
+        return self.detail_response(services.unmark(request.user, self.item_id(pk), data["mark"]))
 
     @extend_schema(request=ReserveSerializer, responses=ItemDetailSerializer)
     @action(detail=True, methods=["post"])
