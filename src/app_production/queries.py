@@ -1,7 +1,8 @@
 import re
 from datetime import datetime, time, timedelta
 
-from django.db.models import Count, F, Q, QuerySet
+from django.db.models import Count, F, Q, QuerySet, Value
+from django.db.models.functions import Coalesce, Lower, Replace
 from django.utils import timezone
 
 from app_catalog.models import Deadlines
@@ -17,6 +18,7 @@ ORDERINGS = {
     "created": ["created_at", "id"],
     "-created": ["-created_at", "-id"],
     "model": ["model__name", "custom_name", "period", "seq"],
+    "alpha": ["title_key", "extra_key", "period", "seq"],
     "trashed": ["-trashed_at", "-id"],
 }
 
@@ -75,6 +77,19 @@ def base_queryset() -> QuerySet[Item]:
     )
 
 
+def default_ordering(stage: str) -> str:
+    """«Заказы» — по дате, Крой, Склад чехлов, В работе, СГП — по алфавиту изделий."""
+    if stage == TRASH:
+        return "trashed"
+    if stage in (Stage.CUT, Stage.COVER, Stage.WORK, Stage.FG):
+        return "alpha"
+    return "recent"
+
+
+def alpha_key(expr):
+    return Replace(Lower(expr), Value("ё"), Value("е"))
+
+
 def filter_items(qs: QuerySet[Item], params) -> QuerySet[Item]:
     stage = params.get("stage") or ""
     text = (params.get("q") or "").strip()
@@ -101,8 +116,10 @@ def filter_items(qs: QuerySet[Item], params) -> QuerySet[Item]:
     if models:
         qs = qs.filter(model_id__in=[int(m) for m in models])
 
-    ordering = params.get("ordering") or ("trashed" if stage == TRASH else "recent")
+    ordering = params.get("ordering") or default_ordering(stage)
     order = ORDERINGS.get(ordering, ORDERINGS["recent"])
+    if ordering == "alpha":
+        qs = qs.annotate(title_key=alpha_key(Coalesce("model__name", "custom_name")), extra_key=alpha_key(F("extra")))
     if not stage and text:
         return qs.order_by(F("trashed_at").asc(nulls_first=True), *order)
     return qs.order_by(*order)

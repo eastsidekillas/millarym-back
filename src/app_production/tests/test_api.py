@@ -314,3 +314,26 @@ class CancelOrderTest(ApiTest):
         restored = self.as_user(self.director).post(f"/api/v1/items/{order.pk}/restore/").json()
         self.assertEqual((restored["stage"], restored["reserve"]), ("orders", "ИП Петров"))
         self.assertIn("заказ снят", restored["events"][0]["text"])
+
+
+class OrderingTest(ApiTest):
+    def test_stage_tabs_alphabetical_orders_by_date(self):
+        from app_catalog.models import ProductModel
+
+        cat = self.model.category
+        yolka = ProductModel.objects.create(name="Ёлка", category=cat)
+        arka = ProductModel.objects.create(name="арка", category=cat)
+        [b] = self.make()
+        [y] = self.make(model=yolka)
+        [c] = self.make(model=None, custom_name="Диван по эскизу")
+        [a2] = self.make(model=arka, extra="правый угол")
+        [a1] = self.make(model=arka, extra="левый угол")
+        client = self.as_user(self.manager)
+        rows = client.get("/api/v1/items/?stage=cut").json()["results"]
+        self.assertEqual([r["number"] for r in rows], [a1.number, a2.number, b.number, c.number, y.number])
+
+        o1, o2 = self.make(reserve="ИП Петров"), self.make(reserve="ООО Агат")
+        rows = client.get("/api/v1/items/?stage=orders").json()["results"]
+        self.assertEqual([r["number"] for r in rows], [o2[0].number, o1[0].number])
+        rows = client.get("/api/v1/items/?stage=cut&ordering=recent").json()["results"]
+        self.assertEqual(rows[0]["number"], a1.number)
