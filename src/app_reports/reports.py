@@ -11,7 +11,7 @@ from app_catalog.models import Deadlines, ProductModel
 from app_production.models import Item, Stage, TrashReason
 from app_production.queries import free_q, late_q
 
-from .rows import Row, fabrics_text, fmt_date, item_title, photos, ru_key, stage_index, where
+from .rows import Row, fabrics_text, meters_text, fmt_date, item_title, photos, ru_key, stage_index, where
 
 
 class ReportError(Exception):
@@ -83,6 +83,7 @@ COL_NUMBER = Column("number", "№", 10)
 COL_ITEM = Column("item", "Изделие", 36)
 COL_PHOTOS = Column("photos", "Ткани (фото)", 22, "photos")
 COL_FABRICS = Column("fabrics", "Ткани", 30)
+COL_METERS = Column("meters", "Метраж", 9)
 COL_WHERE = Column("where", "Где сейчас", 16)
 COL_RESERVE = Column("reserve", "Резерв", 26)
 COL_RESERVED_AT = Column("reserved_at", "Резерв с", 10)
@@ -167,7 +168,8 @@ def order_row(item: Item) -> Row:
             "number": item.number,
             "created": fmt_date(item.created_at),
             "item": item_title(item),
-            "fabrics": fabrics_text(item, meters=True),
+            "fabrics": fabrics_text(item),
+            "meters": meters_text(item),
             "reserve": item.reserve,
             "reserved_at": fmt_date(item.reserved_at),
             "where": where(item),
@@ -203,7 +205,7 @@ def revision(params: dict) -> Result:
     rows = []
     for i in items:
         row = stock_row(i)
-        row.cells["fabrics"] = fabrics_text(i, meters=True)
+        row.cells["meters"] = meters_text(i)
         row.cells["reserve"] = i.reserve or "свободно"
         row.group = f"{i.title}: {by_title[i.title]} шт."
         rows.append(row)
@@ -216,7 +218,7 @@ def revision(params: dict) -> Result:
     return Result(
         "Ревизия: все изделия",
         f"Все этапы, в резерве и свободные, на {today_label()}",
-        [COL_ITEM, COL_NUMBER, COL_FABRICS, COL_RESERVE, COL_WHERE],
+        [COL_ITEM, COL_NUMBER, COL_FABRICS, COL_METERS, COL_RESERVE, COL_WHERE],
         rows,
         summary,
         filename=f"Ревизия {today_label()}",
@@ -252,7 +254,7 @@ def reserved(params: dict) -> Result:
     return Result(
         "Зарезервированные изделия",
         ", ".join(parts).capitalize(),
-        [COL_NUMBER, COL_ITEM, COL_PHOTOS, COL_FABRICS, COL_WHERE, COL_RESERVED_AT],
+        [COL_NUMBER, COL_ITEM, COL_PHOTOS, COL_FABRICS, COL_METERS, COL_WHERE, COL_RESERVED_AT],
         rows,
         summary,
         filename=f"Резерв {text or 'все'} {today_label()}",
@@ -265,7 +267,7 @@ def orders_period(params: dict) -> Result:
     return Result(
         "Заказы за период",
         f"Заведены с {fmt_date(start)} по {fmt_date(end)}",
-        [COL_NUMBER, COL_CREATED, COL_ITEM, COL_PHOTOS, COL_FABRICS, COL_RESERVE, COL_WHERE],
+        [COL_NUMBER, COL_CREATED, COL_ITEM, COL_PHOTOS, COL_FABRICS, COL_METERS, COL_RESERVE, COL_WHERE],
         [order_row(i) for i in qs],
         filename=f"Заказы {fmt_date(start)}-{fmt_date(end)}",
     )
@@ -280,7 +282,7 @@ def orders_by_reserve(params: dict) -> Result:
     return Result(
         "Заказы по контрагенту",
         f"Резерв содержит «{text}», включая отгруженные",
-        [COL_NUMBER, COL_CREATED, COL_ITEM, COL_PHOTOS, COL_FABRICS, COL_RESERVE, COL_WHERE],
+        [COL_NUMBER, COL_CREATED, COL_ITEM, COL_PHOTOS, COL_FABRICS, COL_METERS, COL_RESERVE, COL_WHERE],
         [order_row(i) for i in items],
         filename=f"Заказы {text} {today_label()}",
     )
@@ -301,7 +303,7 @@ def orders_by_model(params: dict) -> Result:
     return Result(
         "Заказы по модели",
         f"Название содержит «{text}», включая отгруженные",
-        [COL_NUMBER, COL_CREATED, COL_ITEM, COL_PHOTOS, COL_FABRICS, COL_RESERVE, COL_WHERE],
+        [COL_NUMBER, COL_CREATED, COL_ITEM, COL_PHOTOS, COL_FABRICS, COL_METERS, COL_RESERVE, COL_WHERE],
         [order_row(i) for i in items],
         filename=f"Заказы {text} {today_label()}",
     )
