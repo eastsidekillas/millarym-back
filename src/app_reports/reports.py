@@ -216,7 +216,7 @@ def revision(params: dict) -> Result:
     return Result(
         "Ревизия: все изделия",
         f"Все этапы, в резерве и свободные, на {today_label()}",
-        [COL_ITEM, COL_NUMBER, COL_PHOTOS, COL_FABRICS, COL_RESERVE, COL_WHERE],
+        [COL_ITEM, COL_NUMBER, COL_FABRICS, COL_RESERVE, COL_WHERE],
         rows,
         summary,
         filename=f"Ревизия {today_label()}",
