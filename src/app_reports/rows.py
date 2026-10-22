@@ -38,6 +38,12 @@ def fabrics_text(item: Item, meters: bool = False) -> str:
     return "\n".join(parts)
 
 
+def meters_text(item: Item) -> str:
+    """Метраж отдельной колонкой, строка в строку с «Ткани»: в названии ткани тоже бывают цифры («Vichy 03 14 м»)."""
+    lines = [f"{f.meters.normalize():f} м".replace(".", ",") if f.meters is not None else "—" for f in item_fabrics(item)]
+    return "\n".join(lines) if any(line != "—" for line in lines) else ""
+
+
 def where(item: Item) -> str:
     if item.purged_at:
         verb = "Отгружено" if item.trash_reason == TrashReason.SHIPPED else "Удалено"
