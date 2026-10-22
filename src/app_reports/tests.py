@@ -53,6 +53,7 @@ class ReportsTest(Fixtures, TestCase):
         cells = {r["number"]: r["cells"] for r in data["rows"]}
         self.assertEqual((cells[b.number]["reserve"], cells[o.number]["reserve"]), ("свободно", "ИП Петров"))
         self.assertEqual((cells[o.number]["where"], cells[b.number]["where"]), ("Заказы", "Крой"))
+        self.assertIn(" 12 м", cells[b.number]["fabrics"])
         self.assertEqual(data["rows"][0]["group"], "Бостон: 2 шт.")
         totals = dict(data["summary"][0]["rows"])
         self.assertEqual(totals, {"Всего изделий": "3", "В резерве": "1", "Свободных": "2"})
@@ -64,6 +65,7 @@ class ReportsTest(Fixtures, TestCase):
         [row] = self.client.get("/api/v1/reports/no-fabric/").json()["rows"]
         self.assertEqual(row["number"], o.number)
         self.assertIn("Основа: ", row["cells"]["fabrics"])
+        self.assertNotIn(" м", row["cells"]["fabrics"].replace("Основа", ""))
 
     def test_reserved_groups_and_repeats(self):
         a, b = self.make(reserve="ИП Петров", qty=2)
