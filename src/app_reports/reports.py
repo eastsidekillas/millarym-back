@@ -203,6 +203,7 @@ def revision(params: dict) -> Result:
     rows = []
     for i in items:
         row = stock_row(i)
+        row.cells["fabrics"] = fabrics_text(i, meters=True)
         row.cells["reserve"] = i.reserve or "свободно"
         row.group = f"{i.title}: {by_title[i.title]} шт."
         rows.append(row)
