@@ -233,6 +233,30 @@ class MarksTest(ServiceTest):
         s.mark_cover_ready(self.cutter, item.pk)
         self.assertEqual(self.kinds(Item.objects.get(pk=item.pk))[1:], [EventKind.SEW, EventKind.COVER_READY])
 
+    def test_mark_date_fix(self):
+        from datetime import timedelta
+
+        today = timezone.localdate()
+        [item] = self.create()
+        Item.objects.filter(pk=item.pk).update(created_at=timezone.now() - timedelta(days=10))
+        with self.assertRaisesMessage(ActionError, "сначала поставьте"):
+            s.set_mark_date(self.cutter, item.pk, "cover_ready", today)
+        s.mark_cover_ready(self.cutter, item.pk)  # «в шитьё» встало само тем же днём
+        item = s.set_mark_date(self.cutter, item.pk, "cover_ready", today - timedelta(days=2))
+        self.assertEqual((item.sew_at, item.cover_ready_at), (today - timedelta(days=2),) * 2)
+        self.assertIn("→", item.events.order_by("-id").first().text)
+        item = s.set_mark_date(self.cutter, item.pk, "sew", today - timedelta(days=5))
+        with self.assertRaisesMessage(ActionError, "не может быть позже «Отшит»"):
+            s.set_mark_date(self.cutter, item.pk, "sew", today - timedelta(days=1))
+        with self.assertRaisesMessage(ActionError, "раньше «Выдано в шитьё»"):
+            s.set_mark_date(self.cutter, item.pk, "cover_ready", today - timedelta(days=6))
+        with self.assertRaisesMessage(ActionError, "позже сегодняшней"):
+            s.set_mark_date(self.cutter, item.pk, "cover_ready", today + timedelta(days=1))
+        with self.assertRaisesMessage(ActionError, "раньше, чем заведено"):
+            s.set_mark_date(self.cutter, item.pk, "sew", today - timedelta(days=30))
+        with self.assertRaises(NoRight):
+            s.set_mark_date(self.manager, item.pk, "sew", today - timedelta(days=4))
+
     def test_unmark_mistake(self):
         [ordered] = self.create(reserve="Х")
         s.mark_fabric_arrived(self.cutter, ordered.pk)

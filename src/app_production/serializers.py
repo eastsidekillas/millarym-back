@@ -19,6 +19,7 @@ class RefSerializer(serializers.Serializer):
 
 class FabricRefSerializer(RefSerializer):
     photo_thumb = serializers.CharField(allow_null=True)
+    photo = serializers.CharField(allow_null=True)
 
 
 class ItemRefSerializer(serializers.Serializer):
@@ -45,8 +46,13 @@ class ItemFabricSerializer(serializers.ModelSerializer):
 
     @extend_schema_field(FabricRefSerializer)
     def get_fabric(self, obj):
-        thumb = obj.fabric.photo_thumb
-        return {"id": obj.fabric_id, "name": obj.fabric.name, "photo_thumb": thumb.url if thumb else None}
+        fabric = obj.fabric
+        return {
+            "id": fabric.id,
+            "name": fabric.name,
+            "photo_thumb": fabric.photo_thumb.url if fabric.photo_thumb else None,
+            "photo": fabric.photo.url if fabric.photo else None,
+        }
 
 
 class ItemSerializer(serializers.ModelSerializer):
@@ -166,6 +172,10 @@ class BulkMoveSerializer(MoveSerializer):
 
 class UnmarkSerializer(serializers.Serializer):
     mark = serializers.ChoiceField(choices=["fabric_arrived", "sew", "cover_ready"])
+
+
+class MarkDateSerializer(UnmarkSerializer):
+    date = serializers.DateField()
 
 
 class ReserveSerializer(serializers.Serializer):

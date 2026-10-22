@@ -326,6 +326,39 @@ MARKS = {
 
 
 @transaction.atomic
+def set_mark_date(user, item_id: int, mark: str, day) -> Item:
+    """Поправить дату отметки: кнопку нажали не в тот день, когда ткань пришла или чехол отшили."""
+    if mark not in MARKS:
+        raise ActionError("Неизвестная отметка.")
+    _, field, kind, text = MARKS[mark]
+    require(user, "marks")
+    item = lock(item_id)
+    not_in_trash(item)
+    old = getattr(item, field)
+    if not old:
+        raise ActionError(f"У {item.number} не отмечено «{text}» — сначала поставьте отметку.")
+    if day == old:
+        return item
+    if day > timezone.localdate():
+        raise ActionError("Дата не может быть позже сегодняшней.")
+    created = timezone.localtime(item.created_at).date()
+    if day < created:
+        raise ActionError(f"Дата не может быть раньше, чем заведено изделие ({created:%d.%m.%y}).")
+    if mark == "cover_ready" and item.sew_at:
+        if item.sew_at == old:
+            # «В шитьё» поставилось само вместе с «Отшит» — двигаем вместе
+            item.sew_at = day
+        elif day < item.sew_at:
+            raise ActionError(f"«Отшит» не может быть раньше «Выдано в шитьё» ({item.sew_at:%d.%m.%y}).")
+    if mark == "sew" and item.cover_ready_at and day > item.cover_ready_at:
+        raise ActionError(f"«Выдано в шитьё» не может быть позже «Отшит» ({item.cover_ready_at:%d.%m.%y}).")
+    setattr(item, field, day)
+    item.save()
+    log(item, user, kind, f"Дата «{text}»: {old:%d.%m.%y} → {day:%d.%m.%y}", date=day.isoformat())
+    return item
+
+
+@transaction.atomic
 def unmark(user, item_id: int, mark: str) -> Item:
     """Снять отметку, поставленную по ошибке, пока изделие на том же этапе."""
     if mark not in MARKS:

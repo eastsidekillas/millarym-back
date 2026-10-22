@@ -25,6 +25,7 @@ from .serializers import (
     ItemUpdateSerializer,
     MoveSerializer,
     ReserveSerializer,
+    MarkDateSerializer,
     UnmarkSerializer,
 )
 
@@ -143,6 +144,12 @@ class ItemViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, viewsets.Gen
     @action(detail=True, methods=["post"], url_path="cover-ready")
     def cover_ready(self, request, pk=None):
         return self.detail_response(services.mark_cover_ready(request.user, self.item_id(pk)))
+
+    @extend_schema(request=MarkDateSerializer, responses=ItemDetailSerializer)
+    @action(detail=True, methods=["post"], url_path="mark-date")
+    def mark_date(self, request, pk=None):
+        data = self.valid(MarkDateSerializer)
+        return self.detail_response(services.set_mark_date(request.user, self.item_id(pk), data["mark"], data["date"]))
 
     @extend_schema(request=UnmarkSerializer, responses=ItemDetailSerializer)
     @action(detail=True, methods=["post"])
