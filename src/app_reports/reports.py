@@ -322,7 +322,7 @@ def no_fabric(params: dict) -> Result:
                 {
                     "number": i.number,
                     "item": item_title(i),
-                    "fabrics": fabrics_text(i, meters=True),
+                    "fabrics": fabrics_text(i),
                     "reserve": i.reserve,
                     "created": fmt_date(i.created_at),
                     "days": str(days),

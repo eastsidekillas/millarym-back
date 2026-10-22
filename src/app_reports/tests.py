@@ -65,6 +65,7 @@ class ReportsTest(Fixtures, TestCase):
         [row] = self.client.get("/api/v1/reports/no-fabric/").json()["rows"]
         self.assertEqual(row["number"], o.number)
         self.assertIn("Основа: ", row["cells"]["fabrics"])
+        self.assertNotIn(" м", row["cells"]["fabrics"].replace("Основа", ""))
 
     def test_reserved_groups_and_repeats(self):
         a, b = self.make(reserve="ИП Петров", qty=2)
