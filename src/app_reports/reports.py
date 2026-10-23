@@ -327,6 +327,7 @@ def no_fabric(params: dict) -> Result:
                     "fabrics": fabrics_text(i),
                     "reserve": i.reserve,
                     "created": fmt_date(i.created_at),
+                    "ordered": fmt_date(i.fabric_ordered_at) if i.fabric_ordered_at else "не заказана",
                     "days": str(days),
                     "late": "просрочено" if late else ("индивидуальный" if i.indiv else ""),
                 },
@@ -337,7 +338,7 @@ def no_fabric(params: dict) -> Result:
         "Заказы, на которые не пришла ткань",
         f"Просрок считается только у индивидуальных: больше {d.fabric_days} дн.",
         [
-            COL_NUMBER, COL_ITEM, COL_FABRICS, COL_RESERVE, COL_CREATED,
+            COL_NUMBER, COL_ITEM, COL_FABRICS, COL_RESERVE, COL_CREATED, Column("ordered", "Ткань заказана", 12),
             Column("days", "Ждём, дн.", 10, "number"), Column("late", "Срок", 14),
         ],
         rows,
@@ -448,7 +449,7 @@ REPORTS = [
     Report("orders-period", "Заказы за период", "Изделия с резервом, заведённые в эти даты, включая отгруженные.", [Param("from", "С", "date", True), Param("to", "По", "date", True)], orders_period),
     Report("orders-by-reserve", "Заказы по контрагенту", "Все изделия, у которых резерв содержит текст, включая отгруженные.", [Param("q", "Контрагент или часть резерва", "text", True, "Например, Фоминых")], orders_by_reserve),
     Report("orders-by-model", "Заказы по модели", "Изделия с резервом, в названии которых есть этот текст: «Бали» найдёт и «Бали (4 кат.)», и спецзаказы, вписанные вручную. Несколько — через запятую. Включая отгруженные.", [Param("q", "Название изделия или его часть", "text", True, "Например, Бали или Бали, Бостон")], orders_by_model),
-    Report("no-fabric", "Не пришла ткань", "Все заказы на этапе «Заказы» без отметки «Ткань пришла»: сколько дней ждём.", [], no_fabric),
+    Report("no-fabric", "Не пришла ткань", "Все заказы на этапе «Заказы» без отметки «Ткань пришла»: заказана ли ткань и сколько дней ждём.", [], no_fabric),
     Report("claims", "Рекламации", "Рекламации, заведённые за период, по виду дефекта: сколько пришло с каждой проблемой, итог по типу претензии.", [Param("from", "С", "date", True), Param("to", "По", "date", True)], claims_report),
     Report("overdue", "Заказы с просроком", "Индивидуальные заказы с просрочкой по ткани, крою или выпуску.", [], overdue),
 ]

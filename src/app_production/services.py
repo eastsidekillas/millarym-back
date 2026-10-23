@@ -1,3 +1,4 @@
+from datetime import datetime, time
 from decimal import Decimal
 from typing import Iterable, TypedDict
 
@@ -162,7 +163,7 @@ def create_items(
     return items
 
 
-def _enter_stage(item: Item, to: str, team: Team | None) -> None:
+def _enter_stage(item: Item, to: str, team: Team | None, day=None) -> None:
     today = timezone.localdate()
     target = STAGE_ORDER.index(to)
     if target >= STAGE_ORDER.index(Stage.COVER):
@@ -178,9 +179,26 @@ def _enter_stage(item: Item, to: str, team: Team | None) -> None:
         item.work_at = today
     item.stage = to
     item.stage_since = timezone.now()
+    if to == Stage.FG:
+        # на СГП перевели раньше, чем нажали кнопку, — дату ставят вручную
+        day = day or today
+        check_fg_date(item, day)
+        item.fg_at = day
+        if day != today:
+            item.stage_since = timezone.make_aware(datetime.combine(day, time(12)))
 
 
-def _move(user, item: Item, to: str, team: Team | None) -> Item:
+def check_fg_date(item: Item, day) -> None:
+    if day > timezone.localdate():
+        raise ActionError("Дата перевода на СГП не может быть позже сегодняшней.")
+    if item.work_at and day < item.work_at:
+        raise ActionError(f"{item.number}: дата СГП раньше выдачи в работу ({item.work_at:%d.%m.%y}).")
+    created = timezone.localtime(item.created_at).date()
+    if day < created:
+        raise ActionError(f"{item.number}: дата СГП раньше, чем заведено изделие ({created:%d.%m.%y}).")
+
+
+def _move(user, item: Item, to: str, team: Team | None, day=None) -> Item:
     not_in_trash(item)
     if to not in Stage.values:
         raise ActionError(f"Неизвестный этап: {to}.")
@@ -193,29 +211,31 @@ def _move(user, item: Item, to: str, team: Team | None) -> Item:
         if to == Stage.ORDERS:
             raise ActionError("На «Заказы» перемещать нельзя — туда попадают только новые изделия с резервом.")
     source = item.stage
-    _enter_stage(item, to, team)
+    _enter_stage(item, to, team, day if to == Stage.FG else None)
     item.save()
     text = f"{stage_label(source)} → {stage_label(to)}"
     if to == Stage.WORK:
         text += f", бригада {item.team.name}"
+    if to == Stage.FG and item.fg_at != timezone.localdate():
+        text += f", дата {item.fg_at:%d.%m.%y}"
     log(item, user, EventKind.MOVE, text, source=source, to=to, team=item.team_id if to == Stage.WORK else None)
     return item
 
 
 @transaction.atomic
-def move(user, item_id: int, to: str, team: Team | None = None) -> Item:
-    return _move(user, lock(item_id), to, team)
+def move(user, item_id: int, to: str, team: Team | None = None, day=None) -> Item:
+    return _move(user, lock(item_id), to, team, day)
 
 
 @transaction.atomic
-def bulk_move(user, item_ids: list[int], to: str, team: Team | None = None) -> list[Item]:
+def bulk_move(user, item_ids: list[int], to: str, team: Team | None = None, day=None) -> list[Item]:
     ids = sorted(set(item_ids))
     if not ids:
         raise ActionError("Не выбрано ни одного изделия.")
     items = list(Item.objects.select_for_update().filter(pk__in=ids).order_by("pk"))
     if len(items) != len(ids):
         raise ActionError("Часть изделий не найдена.")
-    return [_move(user, item, to, team) for item in items]
+    return [_move(user, item, to, team, day) for item in items]
 
 
 @transaction.atomic
@@ -319,9 +339,12 @@ def _mark(user, item_id: int, stage: str, field: str, kind: str, text: str) -> I
 
 
 MARKS = {
+    "fabric_ordered": (Stage.ORDERS, "fabric_ordered_at", EventKind.FABRIC_ORDERED, "Ткань заказана"),
     "fabric_arrived": (Stage.ORDERS, "fabric_arrived_at", EventKind.FABRIC, "Ткань пришла"),
     "sew": (Stage.CUT, "sew_at", EventKind.SEW, "Выдано в шитьё"),
     "cover_ready": (Stage.CUT, "cover_ready_at", EventKind.COVER_READY, "Отшит"),
+    # только для правки даты; снять нельзя — для этого «Исправить этап…»
+    "fg": (Stage.FG, "fg_at", EventKind.MOVE, "На СГП"),
 }
 
 
@@ -331,7 +354,7 @@ def set_mark_date(user, item_id: int, mark: str, day) -> Item:
     if mark not in MARKS:
         raise ActionError("Неизвестная отметка.")
     _, field, kind, text = MARKS[mark]
-    require(user, "marks")
+    require(user, MOVE_RIGHT[Stage.FG] if mark == "fg" else "marks")
     item = lock(item_id)
     not_in_trash(item)
     old = getattr(item, field)
@@ -352,6 +375,14 @@ def set_mark_date(user, item_id: int, mark: str, day) -> Item:
             raise ActionError(f"«Отшит» не может быть раньше «Выдано в шитьё» ({item.sew_at:%d.%m.%y}).")
     if mark == "sew" and item.cover_ready_at and day > item.cover_ready_at:
         raise ActionError(f"«Выдано в шитьё» не может быть позже «Отшит» ({item.cover_ready_at:%d.%m.%y}).")
+    if mark == "fg":
+        check_fg_date(item, day)
+        if item.stage == Stage.FG:
+            item.stage_since = timezone.make_aware(datetime.combine(day, time(12)))
+    if mark == "fabric_arrived" and item.fabric_ordered_at and day < item.fabric_ordered_at:
+        raise ActionError(f"«Ткань пришла» не может быть раньше «Ткань заказана» ({item.fabric_ordered_at:%d.%m.%y}).")
+    if mark == "fabric_ordered" and item.fabric_arrived_at and day > item.fabric_arrived_at:
+        raise ActionError(f"«Ткань заказана» не может быть позже «Ткань пришла» ({item.fabric_arrived_at:%d.%m.%y}).")
     setattr(item, field, day)
     item.save()
     log(item, user, kind, f"Дата «{text}»: {old:%d.%m.%y} → {day:%d.%m.%y}", date=day.isoformat())
@@ -361,7 +392,7 @@ def set_mark_date(user, item_id: int, mark: str, day) -> Item:
 @transaction.atomic
 def unmark(user, item_id: int, mark: str) -> Item:
     """Снять отметку, поставленную по ошибке, пока изделие на том же этапе."""
-    if mark not in MARKS:
+    if mark not in MARKS or mark == "fg":
         raise ActionError("Неизвестная отметка.")
     stage, field, kind, text = MARKS[mark]
     require(user, "marks")
@@ -378,6 +409,11 @@ def unmark(user, item_id: int, mark: str) -> Item:
     item.save()
     log(item, user, kind, f"Отметка «{text}» снята (была {was:%d.%m.%y})", undo=True)
     return item
+
+
+@transaction.atomic
+def mark_fabric_ordered(user, item_id: int) -> Item:
+    return _mark(user, item_id, Stage.ORDERS, "fabric_ordered_at", EventKind.FABRIC_ORDERED, "Ткань заказана")
 
 
 @transaction.atomic

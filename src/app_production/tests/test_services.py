@@ -116,6 +116,31 @@ class MoveTest(ServiceTest):
         texts = list(item.events.order_by("id").values_list("text", flat=True))
         self.assertIn("Склад чехлов → В работе, бригада Бригада Иванова", texts)
 
+    def test_fg_date_by_hand(self):
+        from datetime import timedelta
+
+        today = timezone.localdate()
+        a, b = self.create(qty=2)
+        Item.objects.filter(pk__in=[a.pk, b.pk]).update(created_at=timezone.now() - timedelta(days=10))
+        for it in (a, b):
+            s.move(self.cutter, it.pk, Stage.COVER)
+            s.move(self.master, it.pk, Stage.WORK, team=self.team)
+        Item.objects.filter(pk__in=[a.pk, b.pk]).update(work_at=today - timedelta(days=5))
+        with self.assertRaisesMessage(ActionError, "позже сегодняшней"):
+            s.move(self.master, a.pk, Stage.FG, day=today + timedelta(days=1))
+        with self.assertRaisesMessage(ActionError, "раньше выдачи в работу"):
+            s.move(self.master, a.pk, Stage.FG, day=today - timedelta(days=6))
+        item = s.move(self.master, a.pk, Stage.FG, day=today - timedelta(days=2))
+        self.assertEqual(item.fg_at, today - timedelta(days=2))
+        self.assertEqual(timezone.localtime(item.stage_since).date(), today - timedelta(days=2))
+        self.assertTrue(item.events.order_by("-id").first().text.endswith(f"дата {today - timedelta(days=2):%d.%m.%y}"))
+        [item] = s.bulk_move(self.master, [b.pk], Stage.FG)
+        self.assertEqual(item.fg_at, today)
+        with self.assertRaises(NoRight):
+            s.set_mark_date(self.cutter, b.pk, "fg", today - timedelta(days=1))
+        item = s.set_mark_date(self.master, b.pk, "fg", today - timedelta(days=1))
+        self.assertEqual((item.fg_at, timezone.localtime(item.stage_since).date()), (today - timedelta(days=1),) * 2)
+
     def test_each_step_needs_its_right(self):
         [item] = self.create(reserve="Х")
         for user in (self.manager, self.master, self.storekeeper):
@@ -232,6 +257,22 @@ class MarksTest(ServiceTest):
         s.mark_sew(self.cutter, item.pk)
         s.mark_cover_ready(self.cutter, item.pk)
         self.assertEqual(self.kinds(Item.objects.get(pk=item.pk))[1:], [EventKind.SEW, EventKind.COVER_READY])
+
+    def test_fabric_ordered_then_arrived(self):
+        from app_production.actions import available_actions
+
+        [order] = self.create(reserve="Х")
+        codes = [a["code"] for a in available_actions(self.cutter, order)]
+        self.assertIn("fabric_ordered", codes)
+        item = s.mark_fabric_ordered(self.cutter, order.pk)
+        self.assertEqual(item.fabric_ordered_at, timezone.localdate())
+        codes = [a["code"] for a in available_actions(self.cutter, item)]
+        self.assertNotIn("fabric_ordered", codes)
+        self.assertIn("fabric_arrived", codes)
+        item = s.unmark(self.cutter, order.pk, "fabric_ordered")
+        self.assertIsNone(item.fabric_ordered_at)
+        with self.assertRaises(NoRight):
+            s.mark_fabric_ordered(self.manager, order.pk)
 
     def test_mark_date_fix(self):
         from datetime import timedelta

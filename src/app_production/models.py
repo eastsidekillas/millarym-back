@@ -83,10 +83,12 @@ class Item(models.Model):
     stage_since = models.DateTimeField("на этапе с")
     team = models.ForeignKey(Team, models.PROTECT, null=True, blank=True, related_name="items", verbose_name="бригада")
 
+    fabric_ordered_at = models.DateField("ткань заказана", null=True, blank=True)
     fabric_arrived_at = models.DateField("ткань пришла", null=True, blank=True)
     sew_at = models.DateField("выдано в шитьё", null=True, blank=True)
     cover_ready_at = models.DateField("отшит", null=True, blank=True)
     work_at = models.DateField("выдано в работу", null=True, blank=True)
+    fg_at = models.DateField("на СГП с", null=True, blank=True)
 
     indiv = models.BooleanField("индивидуальный заказ", default=False)
     indiv_note = models.CharField("что особенного", max_length=300, blank=True, default="")
@@ -182,6 +184,7 @@ class EventKind(models.TextChoices):
     MOVE = "move", "Перемещение"
     SHIP = "ship", "Отгрузка"
     RETURN_TO_WORK = "return", "Возврат в работу"
+    FABRIC_ORDERED = "fabric_ordered", "Ткань заказана"
     FABRIC = "fabric", "Ткань пришла"
     SEW = "sew", "Выдано в шитьё"
     COVER_READY = "cover_ready", "Отшит"
