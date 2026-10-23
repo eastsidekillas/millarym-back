@@ -121,6 +121,13 @@ def model_key(name: str) -> tuple[str, bool]:
     return model_norm(name), bool(re.search(r"4\s*кат", name.lower()))
 
 
+# в старой базе так называли модели, которые в справочнике записаны иначе
+OLD_NAMES = {
+    "пуф рубик": "кубик-рубик пуф",
+}
+# «Мюнхен Гранд-1» → «Мюнхен-1 Гранд»: номер серии в старой базе стоял после второго слова
+SERIES_AFTER = re.compile(r"^(\S+) (\S+)-(\d)\b")
+
 KIND_PREFIX = re.compile(r"^(бд|диван|кресло|кровать|пуф)\b\s*", re.IGNORECASE)
 QTY = re.compile(r"[-–—=]?\s*(\d+)\s*(?:шт\w*|штук\w*)\.?", re.IGNORECASE)
 
@@ -161,9 +168,14 @@ class ModelMatcher:
         s = ORDER_REF.sub(" ", s)
         s = DATE.sub(" ", s)
         four = bool(re.search(r"4\s*кат", s))
+        # старые названия — запасной вариант: если модель в справочнике так и называется, найдётся сразу
+        alt = SERIES_AFTER.sub(r"\1-\3 \2", s.strip())
+        for before, after in OLD_NAMES.items():
+            if alt.startswith(before):
+                alt = after + alt[len(before):]
         bases = []
         # сначала без «- 3 штуки» (это количество), потом как есть — «… 40*40 2 шт» бывает частью названия
-        for text in (QTY.sub(" ", s), s):
+        for text in (QTY.sub(" ", s), s, QTY.sub(" ", alt), alt):
             norm = model_norm(text)
             if norm and norm not in bases:
                 bases.append(norm)
