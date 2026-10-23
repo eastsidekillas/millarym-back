@@ -2,6 +2,8 @@ from django.urls import path
 from rest_framework.routers import DefaultRouter
 
 from .views import (
+    CatalogExportView,
+    CatalogImportView,
     CategoryViewSet,
     DeadlinesView,
     FabricViewSet,
@@ -18,4 +20,9 @@ router.register("fabrics", FabricViewSet)
 router.register("kit-options", KitOptionViewSet)
 router.register("teams", TeamViewSet)
 
-urlpatterns = [path("deadlines/", DeadlinesView.as_view(), name="deadlines"), *router.urls]
+urlpatterns = [
+    path("deadlines/", DeadlinesView.as_view(), name="deadlines"),
+    path("catalog/export/", CatalogExportView.as_view(), name="catalog-export"),
+    path("catalog/import/", CatalogImportView.as_view(), name="catalog-import"),
+    *router.urls,
+]
