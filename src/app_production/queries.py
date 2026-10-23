@@ -1,7 +1,7 @@
 import re
 from datetime import datetime, time, timedelta
 
-from django.db.models import Count, F, Q, QuerySet, Value
+from django.db.models import BooleanField, Count, ExpressionWrapper, F, Q, QuerySet, Value
 from django.db.models.functions import Coalesce, Lower, Replace
 from django.utils import timezone
 
@@ -119,6 +119,18 @@ def filter_items(qs: QuerySet[Item], params) -> QuerySet[Item]:
     if not stage and text:
         return qs.order_by(F("trashed_at").asc(nulls_first=True), *order)
     return qs.order_by(*order)
+
+
+def search_stages(params) -> dict:
+    """Сколько найденного поиском на каждом этапе — чтобы сузить поиск до одного этапа."""
+    found = filter_items(Item.objects.all(), {**params.dict(), "stage": ""}).order_by()
+    in_trash = ExpressionWrapper(Q(trashed_at__isnull=False), output_field=BooleanField())
+    rows = found.annotate(in_trash=in_trash).values("stage", "in_trash").annotate(total=Count("id"))
+    out = {s: 0 for s in [*STAGE_ORDER, TRASH]}
+    for row in rows:
+        key = TRASH if row["in_trash"] else row["stage"]
+        out[key] += row["total"]
+    return out
 
 
 def counters() -> dict:

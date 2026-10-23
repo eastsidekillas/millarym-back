@@ -112,6 +112,19 @@ class ListTest(ApiTest):
         rows = self.as_user(self.manager).get("/api/v1/items/", {"q": "ромашка"}).json()["results"]
         self.assertEqual([r["number"] for r in rows], [a.number])
 
+    def test_search_stages(self):
+        [a] = self.make(reserve="ИП Петров")
+        [b] = self.make(reserve="ИП Петров")
+        s.move(self.director, b.pk, Stage.CUT)
+        [c] = self.make(reserve="ИП Петров")
+        s.trash(self.director, c.pk)
+        self.make(reserve="Другой")
+        client = self.as_user(self.manager)
+        data = client.get("/api/v1/items/search-stages/", {"q": "Петров"}).json()
+        self.assertEqual((data["orders"], data["cut"], data["trash"], data["fg"]), (1, 1, 1, 0))
+        rows = client.get("/api/v1/items/", {"q": "Петров", "stage": "cut"}).json()["results"]
+        self.assertEqual([r["number"] for r in rows], [b.number])
+
     @skipUnless(connection.vendor == "postgresql", "начало слова — регулярка PostgreSQL")
     def test_search_from_word_start(self):
         [a] = self.make(extra="Бали левый")

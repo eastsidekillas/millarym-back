@@ -15,7 +15,7 @@ from app_catalog.models import Deadlines
 from . import services
 from .errors import ActionError
 from .models import Item, ItemEvent
-from .queries import ORDERINGS, STAGE_FILTERS, base_queryset, counters, filter_items
+from .queries import ORDERINGS, STAGE_FILTERS, base_queryset, counters, filter_items, search_stages
 from .serializers import (
     BulkMoveSerializer,
     EventSerializer,
@@ -116,6 +116,11 @@ class ItemViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, viewsets.Gen
     @action(detail=False)
     def counters(self, request):
         return Response(counters())
+
+    @extend_schema(parameters=LIST_PARAMS, responses=dict)
+    @action(detail=False, url_path="search-stages")
+    def search_stages(self, request):
+        return Response(search_stages(request.query_params))
 
     @extend_schema(request=MoveSerializer, responses=ItemDetailSerializer)
     @action(detail=True, methods=["post"])
