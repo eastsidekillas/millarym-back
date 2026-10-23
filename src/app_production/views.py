@@ -126,14 +126,19 @@ class ItemViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, viewsets.Gen
     @action(detail=True, methods=["post"])
     def move(self, request, pk=None):
         data = self.valid(MoveSerializer)
-        return self.detail_response(services.move(request.user, self.item_id(pk), data["to"], data.get("team")))
+        return self.detail_response(services.move(request.user, self.item_id(pk), data["to"], data.get("team"), data.get("date")))
 
     @extend_schema(request=BulkMoveSerializer, responses=ItemSerializer(many=True))
     @action(detail=False, methods=["post"], url_path="bulk-move")
     def bulk_move(self, request):
         data = self.valid(BulkMoveSerializer)
-        items = services.bulk_move(request.user, data["ids"], data["to"], data.get("team"))
+        items = services.bulk_move(request.user, data["ids"], data["to"], data.get("team"), data.get("date"))
         return self.list_response(items)
+
+    @extend_schema(request=None, responses=ItemDetailSerializer)
+    @action(detail=True, methods=["post"], url_path="fabric-ordered")
+    def fabric_ordered(self, request, pk=None):
+        return self.detail_response(services.mark_fabric_ordered(request.user, self.item_id(pk)))
 
     @extend_schema(request=None, responses=ItemDetailSerializer)
     @action(detail=True, methods=["post"], url_path="fabric-arrived")
