@@ -25,8 +25,8 @@ status() {
   printf 'state=%s\nsince=%s\ntext=%s\n' "$1" "$(now)" "$2" > "$CTL/status.part" && mv "$CTL/status.part" "$CTL/status"
 }
 
-history() {  # действие, ok|err, копия, кто, текст
-  printf '%s\t%s\t%s\t%s\t%s\t%s\n' "$(now)" "$1" "$2" "$3" "$4" "$5" >> "$BACKUPS/history.log"
+history() {  # действие, ok|err, копия, кто, текст; табуляция в тексте ошибки сдвинула бы колонки
+  printf '%s\t%s\t%s\t%s\t%s\t%s\n' "$(now)" "$1" "$2" "$3" "$4" "$(printf '%s' "$5" | tr '\t\n' '  ' | sed 's/^ *//')" >> "$BACKUPS/history.log"
 }
 
 label() {  # 2026-10-20_0230 → 20.10.26 02:30
