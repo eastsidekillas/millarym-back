@@ -195,6 +195,19 @@ python manage.py purge_trash             # удалить
   `docker-compose.yml`, другая папка — `BACKUP_DIR` в `.env`) дамп базы `db_ГГГГ-ММ-ДД_ЧЧММСС.dump`, архив фото
   `media_….tar.gz` и заметку `note_….txt`; копии старше 14 дней удаляются. Журнал — `backups/history.log`.
 
+## Начать с чистой базы
+
+```bash
+cd /opt/millarym/millarym-back
+bash deploy/reset-db.sh              # база и фото
+bash deploy/reset-db.sh --keep-photos   # только база, фото остаются
+```
+
+Спросит слово УДАЛИТЬ, сделает копию (её видно на странице «Резервные копии» — «Перед очисткой базы»), удалит тома
+`postgres_data` (и `media`) и поднимет всё заново через `server-setup.sh`: справочник моделей и сотрудники с новыми
+паролями в `/root/millarym-passwords.txt`. Дальше — фото тканей (`deploy/import-fabrics.sh`) и перенос старых данных
+(`deploy/import-legacy.sh`, сначала с `--dry-run`). Папка копий не трогается.
+
 ## Резервные копии в приложении
 
 Страница «Резервные копии» (меню пользователя) — только у роли «Сисадмин» (право `backups`; у директора его нет).

@@ -6,7 +6,7 @@ SRC="${1:?укажите zip-архив или папку с картинкам�
 shift
 SRC=$(realpath "$SRC")
 cd "$(dirname "$0")/.."
-DC="docker compose -f docker-compose.yml -f deploy/compose.server.yml"
+. deploy/compose-cmd.sh
 if [ -d "$SRC" ]; then
   $DC run --rm -T -v "$SRC:/import:ro" app django-admin import_fabrics /import "$@"
 else
