@@ -1,14 +1,22 @@
+from dataclasses import asdict
+from urllib.parse import quote
+
+from django.http import HttpResponse
+from django.utils import timezone
 from django_filters.rest_framework import DjangoFilterBackend
+from drf_spectacular.utils import extend_schema
 from django.db.models import Count, ProtectedError, Q
 from rest_framework import filters, mixins, status, viewsets
 from rest_framework.generics import RetrieveUpdateAPIView
 from rest_framework.pagination import LimitOffsetPagination
 from rest_framework.parsers import FormParser, JSONParser, MultiPartParser
 from rest_framework.response import Response
+from rest_framework.views import APIView
 
-from app_auth.permissions import ReadOrRight
+from app_auth.permissions import ReadOrRight, no_right_message
 from app_production.models import Item
 
+from . import exchange
 from .models import Category, Deadlines, Fabric, KitOption, ProductModel, Team
 from .serializers import (
     CategorySerializer,
@@ -18,6 +26,9 @@ from .serializers import (
     ProductModelSerializer,
     TeamSerializer,
 )
+
+
+XLSX = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
 
 
 class CatalogViewSet(
@@ -127,3 +138,43 @@ class DeadlinesView(RetrieveUpdateAPIView):
 
     def get_object(self):
         return Deadlines.get()
+
+
+class CatalogExportView(APIView):
+    @extend_schema(responses={(200, XLSX): bytes})
+    def get(self, request):
+        response = HttpResponse(exchange.build_xlsx(), content_type=XLSX)
+        name = f"Справочники {timezone.localdate():%d.%m.%y}.xlsx"
+        response["Content-Disposition"] = f"attachment; filename=catalog.xlsx; filename*=UTF-8''{quote(name)}"
+        response["Access-Control-Expose-Headers"] = "Content-Disposition"
+        return response
+
+
+class CatalogImportView(APIView):
+    """?dry_run=1 — только показать, что изменится."""
+
+    parser_classes = [MultiPartParser]
+
+    @extend_schema(request={"multipart/form-data": dict}, responses=dict)
+    def post(self, request):
+        user = request.user
+        if not (user.has_perm("app_auth.catalog") or user.has_perm("app_auth.fabrics")):
+            return Response({"detail": no_right_message("catalog")}, status=status.HTTP_403_FORBIDDEN)
+        upload = request.FILES.get("file")
+        if not upload:
+            return Response({"detail": "Выберите файл .xlsx."}, status=status.HTTP_400_BAD_REQUEST)
+        if upload.size > 10 * 1024 * 1024:
+            return Response({"detail": "Файл больше 10 МБ — это точно выгрузка справочников?"}, status=status.HTTP_400_BAD_REQUEST)
+        dry_run = request.query_params.get("dry_run") in ("1", "true")
+        try:
+            reports = exchange.import_xlsx(upload.read(), lambda right: user.has_perm(f"app_auth.{right}"), dry_run)
+        except ValueError as exc:
+            return Response({"detail": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+        has_errors = any(r.errors for r in reports)
+        return Response(
+            {
+                "applied": not dry_run and not has_errors,
+                "has_errors": has_errors,
+                "sheets": [asdict(r) for r in reports],
+            }
+        )
