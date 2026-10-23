@@ -2,7 +2,8 @@
 # Обслуживание «Резервов и Заказов» на сервере — меню: bash /opt/millarym/millarym-back/deploy/crm.sh
 # Или сразу действие: crm.sh update | status | backup | backups | restore | reset | fabrics | legacy | admin | password | logs
 set -uo pipefail
-cd "$(dirname "$0")/.." || exit 1
+# readlink — чтобы работало и через ярлык /usr/local/bin/crm
+cd "$(dirname "$(readlink -f "$0")")/.." || exit 1
 BACK=$PWD
 SETUP="$BACK/../millarym-front/deploy/server-setup.sh"
 
