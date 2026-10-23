@@ -5,9 +5,11 @@
 Ошибка хоть в одной строке — не меняется ничего.
 """
 
+import hashlib
 from dataclasses import dataclass, field
 from io import BytesIO
 
+from django.conf import settings
 from django.db import transaction
 from openpyxl import Workbook, load_workbook
 from openpyxl.styles import Font, PatternFill
@@ -18,6 +20,12 @@ from .models import Category, Fabric, KitOption, ProductModel, Team
 YES = {"да", "yes", "1", "true", "+", "активна", "активен"}
 NO = {"нет", "no", "0", "false", "-", "скрыта", "скрыт"}
 HEAD_FILL = PatternFill("solid", fgColor="E8EFE6")
+SERVICE_SHEET = "служебное"
+
+
+def base_id() -> str:
+    """Чья это база: у каждого сервера свой секретный ключ. ID записей сравнимы только внутри одной базы."""
+    return hashlib.sha256(settings.SECRET_KEY.encode()).hexdigest()[:16]
 KIT_SEPARATOR = ";"
 
 
@@ -68,6 +76,7 @@ HELP = [
     "Своя комплектация модели — через точку с запятой: «Подушки-подголовники 3 шт.; Подлокотники мягкие». Без запятых.",
     "Фото тканей и моделей в файл не попадают и при загрузке не меняются.",
     "Перед загрузкой программа покажет, что изменится. Если есть ошибки — не изменится ничего.",
+    "Файл из другой программы (другой сервер) — записи находятся по названиям: переименование там станет новой записью.",
 ]
 
 
@@ -110,6 +119,10 @@ def build_xlsx() -> bytes:
                 continue
             ws.add_data_validation(dv)
             dv.add(f"{letter}2:{letter}2000")
+    service = wb.create_sheet(SERVICE_SHEET)
+    service["A1"] = "база"
+    service["B1"] = base_id()
+    service.sheet_state = "hidden"
     ws = wb.create_sheet("Как заполнять")
     for line in HELP:
         ws.append([line])
@@ -196,7 +209,7 @@ def _show(col: Col, value) -> str:
     return str(value) if value not in (None, "") else "—"
 
 
-def _import_sheet(ws, sheet: Sheet, report: SheetReport, categories: dict[str, Category]) -> None:
+def _import_sheet(ws, sheet: Sheet, report: SheetReport, categories: dict[str, Category], use_ids: bool) -> None:
     rows = list(ws.iter_rows(values_only=True))
     if not rows:
         return
@@ -221,7 +234,7 @@ def _import_sheet(ws, sheet: Sheet, report: SheetReport, categories: dict[str, C
         if all(v in (None, "") for v in row):
             continue
         try:
-            raw_id = value("ID")
+            raw_id = value("ID") if use_ids else None
             pk = None
             if raw_id not in (None, ""):
                 try:
@@ -280,13 +293,26 @@ def _import_sheet(ws, sheet: Sheet, report: SheetReport, categories: dict[str, C
             report.errors.append(f"строка {number}: {exc}")
 
 
-def import_xlsx(content: bytes, can, dry_run: bool) -> list[SheetReport]:
-    """can(right) — есть ли у пользователя право. Ошибка где угодно или проверка — откат всего."""
+def file_base(wb) -> str:
+    if SERVICE_SHEET not in wb.sheetnames:
+        return ""
+    for row in wb[SERVICE_SHEET].iter_rows(values_only=True):
+        if row and row[0] == "база":
+            return str(row[1] or "")
+    return ""
+
+
+def import_xlsx(content: bytes, can, dry_run: bool) -> tuple[list[SheetReport], bool]:
+    """can(right) — есть ли у пользователя право. Ошибка где угодно или проверка — откат всего.
+
+    Второе значение — файл из другой базы: тогда ID не смотрим, записи находим по названию.
+    """
     try:
         wb = load_workbook(BytesIO(content), read_only=True, data_only=True)
     except Exception:
         raise ValueError("Не удалось открыть файл — нужен .xlsx, выгруженный из «Справочников».")
     reports = []
+    foreign = file_base(wb) != base_id()
     known = [s for s in SHEETS if s.title in wb.sheetnames]
     if not known:
         raise ValueError("В файле нет листов справочников — выгрузите файл из программы и правьте его.")
@@ -298,7 +324,7 @@ def import_xlsx(content: bytes, can, dry_run: bool) -> list[SheetReport]:
             if not can(sheet.right):
                 report.skipped = "нет прав менять этот справочник — лист пропущен"
                 continue
-            _import_sheet(wb[sheet.title], sheet, report, categories)
+            _import_sheet(wb[sheet.title], sheet, report, categories, use_ids=not foreign)
         if dry_run or any(r.errors for r in reports):
             transaction.set_rollback(True)
-    return reports
+    return reports, foreign

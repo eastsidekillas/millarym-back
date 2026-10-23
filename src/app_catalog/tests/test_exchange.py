@@ -91,6 +91,19 @@ class ExchangeTest(Fixtures, TestCase):
         self.assertIn("без запятых", errors)
         self.assertFalse(Category.objects.filter(name="Новая категория").exists())
 
+    def test_file_from_other_base_matches_by_name(self):
+        wb = self.export()
+        ws = wb["Модели"]
+        for row in ws.iter_rows(min_row=2):
+            row[0].value = (row[0].value or 0) + 1000  # чужие ID
+        ws.append([5000, "Модель с другого сервера", "Прямые диваны", "", "да"])
+        wb["служебное"]["B1"] = "чужая"
+        data = self.upload(wb).json()
+        self.assertTrue(data["applied"], data)
+        self.assertTrue(data["foreign"])
+        self.assertEqual(self.sheet(data, "Модели")["created"], ["Модель с другого сервера"])
+        self.assertEqual(ProductModel.objects.filter(name="Бостон").count(), 1)
+
     def test_rights(self):
         wb = self.export()
         wb["Ткани"].append([None, "Велюр 99", "да"])

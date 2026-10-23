@@ -167,7 +167,7 @@ class CatalogImportView(APIView):
             return Response({"detail": "Файл больше 10 МБ — это точно выгрузка справочников?"}, status=status.HTTP_400_BAD_REQUEST)
         dry_run = request.query_params.get("dry_run") in ("1", "true")
         try:
-            reports = exchange.import_xlsx(upload.read(), lambda right: user.has_perm(f"app_auth.{right}"), dry_run)
+            reports, foreign = exchange.import_xlsx(upload.read(), lambda right: user.has_perm(f"app_auth.{right}"), dry_run)
         except ValueError as exc:
             return Response({"detail": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
         has_errors = any(r.errors for r in reports)
@@ -175,6 +175,7 @@ class CatalogImportView(APIView):
             {
                 "applied": not dry_run and not has_errors,
                 "has_errors": has_errors,
+                "foreign": foreign,
                 "sheets": [asdict(r) for r in reports],
             }
         )
