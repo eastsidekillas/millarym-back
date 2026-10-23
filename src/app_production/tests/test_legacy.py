@@ -345,8 +345,10 @@ class NewMatchingTest(SimpleTestCase):
     def test_model_old_names(self):
         from types import SimpleNamespace as N
 
-        models = [N(name=n) for n in ("Кубик-Рубик пуф", "Мюнхен-1 Гранд диван", "Мюнхен-1 XL диван")]
+        models = [N(name=n) for n in ("Кубик-Рубик пуф", "Мюнхен-1 Гранд диван", "Мюнхен-1 XL диван", "Мюнхен-1 ДУ")]
         m = t.ModelMatcher(models)
         self.assertEqual(m.match("Пуф Рубик")[0].name, "Кубик-Рубик пуф")
         self.assertEqual(m.match("Мюнхен Гранд-1 диван правый")[0].name, "Мюнхен-1 Гранд диван")
         self.assertEqual(m.match("Мюнхен XL-1 диван")[0].name, "Мюнхен-1 XL диван")
+        model, rest = m.match("Мюнхен-1 диван левый")
+        self.assertEqual((model.name, rest), ("Мюнхен-1 ДУ", "левый"))
