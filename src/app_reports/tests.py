@@ -94,10 +94,15 @@ class ReportsTest(Fixtures, TestCase):
         Item.objects.filter(pk__in=[sewing.pk, ready.pk, waiting.pk]).update(stage=Stage.CUT, stage_since=since)
         Item.objects.filter(pk=sewing.pk).update(sew_at=date(2026, 10, 14))
         Item.objects.filter(pk=ready.pk).update(sew_at=date(2026, 10, 14), cover_ready_at=date(2026, 10, 20))
-        rows = {r["number"]: r["cells"]["where"] for r in self.client.get("/api/v1/reports/reserved/?q=фобос").json()["rows"]}
-        self.assertEqual(rows[sewing.number], "Крой с 12.10.26\nв шитье с 14.10.26")
-        self.assertEqual(rows[ready.number], "Крой с 12.10.26\nотшит 20.10.26")
-        self.assertEqual(rows[waiting.number], "Крой с 12.10.26\nне в шитье")
+        rows = {r["number"]: r["cells"] for r in self.client.get("/api/v1/reports/reserved/?q=фобос").json()["rows"]}
+        self.assertEqual(rows[sewing.number]["sewing"], "в шитье 14.10.26")
+        self.assertEqual(rows[ready.number]["sewing"], "отшит 20.10.26")
+        self.assertEqual(rows[waiting.number]["sewing"], "")
+        self.assertEqual({r["where"] for r in rows.values()}, {"Крой"})
+        xlsx = load_workbook(BytesIO(self.client.get("/api/v1/reports/reserved/xlsx/?q=фобос").content)).active
+        self.assertIn("Отшит / в шитье", [c.value for c in xlsx[6]])
+        self.assertNotIn("Метраж", [c.value for c in xlsx[6]])
+        self.assertTrue(xlsx.auto_filter.ref)
 
     def test_orders_include_shipped_not_deleted(self):
         [shipped] = self.make(reserve="Фобос")

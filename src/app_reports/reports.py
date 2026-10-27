@@ -11,7 +11,7 @@ from app_catalog.models import Deadlines, ProductModel
 from app_production.models import Item, Stage, TrashReason
 from app_production.queries import free_q, late_q
 
-from .rows import Row, fabrics_text, fmt_date, item_title, meters_text, model_photo, photos, ru_key, stage_index, where, where_since
+from .rows import Row, fabrics_text, fmt_date, item_title, meters_text, model_photo, photos, ru_key, stage_index, sewing, where
 
 
 class ReportError(Exception):
@@ -87,6 +87,7 @@ COL_METERS = Column("meters", "Метраж", 9)
 COL_WHERE = Column("where", "Где сейчас", 16)
 COL_RESERVE = Column("reserve", "Резерв", 26)
 COL_RESERVED_AT = Column("reserved_at", "Резерв с", 10)
+COL_SEWING = Column("sewing", "Отшит / в шитье", 16)
 COL_CREATED = Column("created", "Заведено", 10)
 
 
@@ -247,7 +248,7 @@ def reserved(params: dict) -> Result:
     rows = []
     for i in items:
         row = order_row(i)
-        row.cells["where"] = where_since(i)
+        row.cells["sewing"] = sewing(i)
         row.group = f"{i.reserve}: {sum(groups[i.reserve].values())} шт."
         if same[(ru_key(i.reserve), ru_key(item_title(i)), fabrics_text(i))] > 1:
             row.mark = "warn"
@@ -262,7 +263,7 @@ def reserved(params: dict) -> Result:
     return Result(
         "Зарезервированные изделия",
         ", ".join(parts).capitalize(),
-        [COL_NUMBER, COL_ITEM, COL_PHOTOS, COL_FABRICS, COL_METERS, Column("where", "Где сейчас", 20), COL_RESERVED_AT],
+        [COL_NUMBER, COL_ITEM, COL_PHOTOS, COL_FABRICS, COL_WHERE, COL_SEWING, COL_RESERVED_AT],
         rows,
         summary,
         filename=f"Резерв {text or 'все'} {today_label()}",
