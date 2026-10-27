@@ -68,6 +68,14 @@ class CatalogApiTest(TestCase):
             self.assertLessEqual(max(thumb.size), 300)
             self.assertEqual(full.format, "WEBP")
             self.assertEqual(thumb.format, "WEBP")
+        # сохранить картинку из программы — в JPEG, с названием ткани
+        jpeg = r.json()["photo_jpeg"]
+        self.assertTrue(jpeg.endswith(".jpg"), jpeg)
+        got = self.as_user("okisheva").get(jpeg)
+        self.assertEqual((got.status_code, got["Content-Type"]), (200, "image/jpeg"))
+        self.assertIn("filename*=UTF-8''", got["Content-Disposition"])
+        with Image.open(BytesIO(b"".join(got.streaming_content) if got.streaming else got.content)) as img:
+            self.assertEqual(img.format, "JPEG")
 
     def test_multipart_edit_keeps_active(self):
         fabric = Fabric.objects.create(name="Рогожка")

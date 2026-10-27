@@ -1,6 +1,7 @@
 from rest_framework import serializers
 from rest_framework.fields import empty
 
+from .images import jpeg_url
 from .models import Category, Deadlines, Fabric, KitOption, ProductModel, Team
 
 MAX_PHOTO_MB = 15
@@ -65,6 +66,7 @@ class ProductModelSerializer(PhotoSerializerMixin, UniqueNameMixin, serializers.
     kit_options = serializers.ListField(
         child=serializers.CharField(max_length=120, allow_blank=True), required=False, max_length=MAX_KIT_OPTIONS
     )
+    photo_jpeg = serializers.SerializerMethodField()
 
     def validate_kit_options(self, options):
         cleaned = []
@@ -81,16 +83,26 @@ class ProductModelSerializer(PhotoSerializerMixin, UniqueNameMixin, serializers.
 
     class Meta:
         model = ProductModel
-        fields = ["id", "name", "category", "category_name", "photo", "photo_thumb", "active", "kit_options", "in_work", "used"]
+        fields = [
+            "id", "name", "category", "category_name", "photo", "photo_thumb", "photo_jpeg", "active", "kit_options",
+            "in_work", "used",
+        ]
+
+    def get_photo_jpeg(self, obj) -> str | None:
+        return jpeg_url("models", obj)
 
 
 class FabricSerializer(PhotoSerializerMixin, UniqueNameMixin, serializers.ModelSerializer):
     in_work = serializers.IntegerField(read_only=True, default=0)
     used = serializers.IntegerField(read_only=True, default=0)
+    photo_jpeg = serializers.SerializerMethodField()
 
     class Meta:
         model = Fabric
-        fields = ["id", "name", "photo", "photo_thumb", "active", "created_at", "in_work", "used"]
+        fields = ["id", "name", "photo", "photo_thumb", "photo_jpeg", "active", "created_at", "in_work", "used"]
+
+    def get_photo_jpeg(self, obj) -> str | None:
+        return jpeg_url("fabrics", obj)
 
 
 class KitOptionSerializer(UniqueNameMixin, serializers.ModelSerializer):

@@ -1,3 +1,4 @@
+import re
 import uuid
 from io import BytesIO
 
@@ -31,3 +32,22 @@ def shrink(file) -> tuple[ContentFile, ContentFile]:
 
 def new_name() -> str:
     return f"{uuid.uuid4().hex}.webp"
+
+
+def jpeg_bytes(path: str, quality: int = 90) -> bytes:
+    """Фото для партнёров: в справочнике оно хранится в WebP, а пересылают обычно JPEG."""
+    with Image.open(path) as src:
+        img = src.convert("RGB")
+        buf = BytesIO()
+        img.save(buf, "JPEG", quality=quality, optimize=True)
+    return buf.getvalue()
+
+
+def jpeg_url(kind: str, obj) -> str | None:
+    """Адрес, по которому фото отдаётся в JPEG; имя файла — название записи, чтобы «Сохранить как» дало «Manila 01.jpg»."""
+    if not obj.photo:
+        return None
+    from urllib.parse import quote
+
+    name = re.sub(r'[\\/:*?"<>|]+', "-", obj.name).strip() or "photo"
+    return f"/api/v1/{kind}/{obj.pk}/jpeg/{quote(name)}.jpg"

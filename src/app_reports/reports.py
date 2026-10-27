@@ -11,7 +11,7 @@ from app_catalog.models import Deadlines, ProductModel
 from app_production.models import Item, Stage, TrashReason
 from app_production.queries import free_q, late_q
 
-from .rows import Row, fabrics_text, meters_text, fmt_date, item_title, photos, ru_key, stage_index, where
+from .rows import Row, fabrics_text, fmt_date, item_title, meters_text, model_photo, photos, ru_key, stage_index, where
 
 
 class ReportError(Exception):
@@ -186,11 +186,18 @@ def free_stock(params: dict) -> Result:
     items = sorted(qs, key=lambda i: (ru_key(i.title), ru_key(i.extra), stage_index(i), i.period, i.seq))
     label = models_label(params.get("models", ""))
     name = f"Свободные {label}" if label and "," not in label else "Свободные остатки"
+    by_title = Counter(i.title for i in items)
+    rows = []
+    for i in items:
+        row = stock_row(i)
+        row.group = f"{i.title}: {by_title[i.title]} шт."
+        row.group_photo = model_photo(i)
+        rows.append(row)
     return Result(
         "Свободные остатки",
         label or "Все модели",
         [COL_ITEM, COL_NUMBER, COL_PHOTOS, COL_FABRICS, COL_WHERE],
-        [stock_row(i) for i in items],
+        rows,
         filename=f"{name} {today_label()}",
     )
 

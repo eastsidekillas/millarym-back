@@ -11,6 +11,7 @@ from app_catalog.models import Deadlines, Fabric, ProductModel, Team
 from .errors import ActionError, NoRight
 from .models import (
     STAGE_ORDER,
+    AmountUnit,
     EventKind,
     FabricSlot,
     Item,
@@ -37,6 +38,7 @@ class FabricInput(TypedDict, total=False):
     slot: str
     fabric: Fabric
     meters: Decimal | None
+    unit: str
 
 
 def require(user, code: str) -> None:
@@ -75,7 +77,9 @@ def check_name(model: ProductModel | None, custom_name: str, current: ProductMod
     return None, custom_name
 
 
-def check_fabrics(fabrics: list[FabricInput]) -> list[FabricInput]:
+def check_fabrics(fabrics: list[FabricInput], keep_hidden: set[int] = frozenset()) -> list[FabricInput]:
+    """keep_hidden — ткани, которые уже стоят у изделия: скрытая ткань (например, заведённая переносом)
+    не мешает поправить метраж или комплектацию."""
     slots = [f["slot"] for f in fabrics]
     if len(slots) != len(set(slots)):
         raise ActionError("Каждое место ткани можно указать один раз.")
@@ -84,16 +88,24 @@ def check_fabrics(fabrics: list[FabricInput]) -> list[FabricInput]:
     for f in fabrics:
         if f["slot"] not in FabricSlot.values:
             raise ActionError(f"Неизвестное место ткани: {f['slot']}.")
-        if not f["fabric"].active:
+        if not f["fabric"].active and f["fabric"].pk not in keep_hidden:
             raise ActionError(f"Ткань «{f['fabric'].name}» скрыта из справочника.")
         if f.get("meters") is not None and f["meters"] < 0:
             raise ActionError("Метраж не может быть отрицательным.")
+        check_unit(f["slot"], f.get("unit") or AmountUnit.METERS)
     return fabrics
 
 
-def meters_text(meters) -> str:
+def check_unit(slot: str, unit: str) -> None:
+    if unit not in AmountUnit.values:
+        raise ActionError(f"Неизвестная единица: {unit}.")
+    if unit == AmountUnit.PIECES and slot == FabricSlot.MAIN:
+        raise ActionError("Основная ткань — только в метрах; в штуках можно указать компаньонов.")
+
+
+def meters_text(meters, unit: str = AmountUnit.METERS) -> str:
     value = Decimal(str(meters)).quantize(Decimal("0.01")).normalize()
-    return f"{value:f}".replace(".", ",") + " м"
+    return f"{value:f}".replace(".", ",") + (" шт" if unit == AmountUnit.PIECES else " м")
 
 
 def fabrics_text(fabrics: Iterable) -> str:
@@ -101,8 +113,11 @@ def fabrics_text(fabrics: Iterable) -> str:
     items = sorted(fabrics, key=lambda f: order.index(f["slot"] if isinstance(f, dict) else f.slot))
     parts = []
     for f in items:
-        slot, fabric, meters = (f["slot"], f["fabric"], f.get("meters")) if isinstance(f, dict) else (f.slot, f.fabric, f.meters)
-        parts.append(f"{FabricSlot(slot).label}: {fabric.name}" + (f" {meters_text(meters)}" if meters is not None else ""))
+        if isinstance(f, dict):
+            slot, fabric, meters, unit = f["slot"], f["fabric"], f.get("meters"), f.get("unit") or AmountUnit.METERS
+        else:
+            slot, fabric, meters, unit = f.slot, f.fabric, f.meters, f.unit
+        parts.append(f"{FabricSlot(slot).label}: {fabric.name}" + (f" {meters_text(meters, unit)}" if meters is not None else ""))
     return "; ".join(parts)
 
 
@@ -118,6 +133,7 @@ def create_items(
     indiv: bool = False,
     indiv_note: str = "",
     comment: str = "",
+    table_no: str = "",
     qty: int = 1,
     copy_of: Item | None = None,
 ) -> list[Item]:
@@ -142,6 +158,7 @@ def create_items(
             custom_name=custom_name,
             extra=extra.strip(),
             comment=comment.strip(),
+            table_no=table_no.strip(),
             reserve=reserve,
             reserved_at=now if reserve else None,
             stage=stage,
@@ -153,7 +170,10 @@ def create_items(
             created_at=now,
         )
         ItemFabric.objects.bulk_create(
-            [ItemFabric(item=item, slot=f["slot"], fabric=f["fabric"], meters=f.get("meters")) for f in fabrics]
+            [
+                ItemFabric(item=item, slot=f["slot"], fabric=f["fabric"], meters=f.get("meters"), unit=f.get("unit") or AmountUnit.METERS)
+                for f in fabrics
+            ]
         )
         text = f"Заведено → {stage_label(stage)}"
         if copy_of:
@@ -456,6 +476,7 @@ def set_reserve(user, item_id: int, reserve: str) -> Item:
 EDITABLE = {
     "extra": "Комплектация",
     "comment": "Комментарий",
+    "table_no": "Номер стола",
     "indiv": "Индивидуальный заказ",
     "indiv_note": "Что особенного",
 }
@@ -496,7 +517,7 @@ def update_item(
             title = item.title if item.model_id else f"{item.title} (вне справочника)"
             log(item, user, EventKind.EDIT, f"Название: {old[2]} → {title}", field="name", old=old[2], new=item.title)
 
-    for key in ("extra", "comment", "indiv_note"):
+    for key in ("extra", "comment", "indiv_note", "table_no"):
         if key in fields:
             fields[key] = (fields[key] or "").strip()
     if fields.get("indiv") is False:
@@ -529,17 +550,44 @@ def update_item(
             )
 
     if fabrics is not None:
-        check_fabrics(fabrics)
+        check_fabrics(fabrics, keep_hidden=set(item.fabrics.values_list("fabric_id", flat=True)))
         before = fabrics_text(item.fabrics.select_related("fabric"))
         after = fabrics_text(fabrics)
         if before != after:
             item.fabrics.all().delete()
             ItemFabric.objects.bulk_create(
-                [ItemFabric(item=item, slot=f["slot"], fabric=f["fabric"], meters=f.get("meters")) for f in fabrics]
+                [
+                ItemFabric(item=item, slot=f["slot"], fabric=f["fabric"], meters=f.get("meters"), unit=f.get("unit") or AmountUnit.METERS)
+                for f in fabrics
+            ]
             )
             item.changed_at = timezone.now()
             item.save(update_fields=["changed_at"])
             log(item, user, EventKind.EDIT, f"Ткани: {before} → {after}", field="fabrics", old=before, new=after)
+    return item
+
+
+@transaction.atomic
+def set_fabric_amount(user, item_id: int, slot: str, meters, unit: str = AmountUnit.METERS) -> Item:
+    """Метраж (или штуки у компаньона) в любой момент: менеджер при заведении его часто не знает,
+    вписывает руководитель закройного цеха. Право — «Изделия» или «Отметки»."""
+    if not (user.has_perm("app_auth.edit") or user.has_perm("app_auth.marks")):
+        raise NoRight(no_right_message("marks"))
+    item = lock(item_id)
+    not_in_trash(item)
+    row = item.fabrics.select_related("fabric").filter(slot=slot).first()
+    if row is None:
+        raise ActionError(f"У {item.number} нет ткани «{FabricSlot(slot).label if slot in FabricSlot.values else slot}».")
+    if meters is not None and meters < 0:
+        raise ActionError("Метраж не может быть отрицательным.")
+    check_unit(slot, unit)
+    before = fabrics_text([row])
+    if (row.meters, row.unit) == (meters, unit):
+        return item
+    row.meters, row.unit = meters, unit
+    row.save(update_fields=["meters", "unit"])
+    after = fabrics_text([row])
+    log(item, user, EventKind.EDIT, f"Ткани: {before} → {after}", field="fabrics", old=before, new=after)
     return item
 
 
@@ -549,7 +597,7 @@ def copy_item(user, item_id: int) -> Item:
     if source is None:
         raise ActionError("Изделие не найдено.")
     fabrics = [
-        {"slot": f.slot, "fabric": f.fabric, "meters": f.meters} for f in source.fabrics.select_related("fabric")
+        {"slot": f.slot, "fabric": f.fabric, "meters": f.meters, "unit": f.unit} for f in source.fabrics.select_related("fabric")
     ]
     [item] = create_items(
         user,

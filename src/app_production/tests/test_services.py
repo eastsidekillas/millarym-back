@@ -418,6 +418,50 @@ class EditCopyTest(ServiceTest):
         self.assertEqual(copy.events.get().text, f"Копия {item.number} → Заказы")
 
 
+class FabricAmountTest(ServiceTest):
+    def test_cutter_sets_meters_on_any_stage(self):
+        [item] = self.create(fabrics=[{"slot": "main", "fabric": self.velour, "meters": None}])
+        s.move(self.director, item.pk, Stage.WORK, team=self.team)
+        s.set_fabric_amount(self.cutter, item.pk, "main", 11.5)
+        self.assertEqual(float(item.fabrics.get().meters), 11.5)
+        self.assertEqual(item.events.order_by("-id").first().text, "Ткани: Основа: Велюр 03 → Основа: Велюр 03 11,5 м")
+
+    def test_pieces_only_for_companions(self):
+        [item] = self.create(fabrics=self.fabrics(comp1=self.leather))
+        s.set_fabric_amount(self.cutter, item.pk, "comp1", 4, "pcs")
+        row = item.fabrics.get(slot="comp1")
+        self.assertEqual((int(row.meters), row.unit), (4, "pcs"))
+        self.assertIn("Экокожа белая 4 шт", item.events.order_by("-id").first().text)
+        with self.assertRaises(ActionError):
+            s.set_fabric_amount(self.cutter, item.pk, "main", 4, "pcs")
+        with self.assertRaises(ActionError):
+            self.create(fabrics=[{"slot": "main", "fabric": self.velour, "meters": 2, "unit": "pcs"}])
+
+    def test_rights_and_missing_slot(self):
+        [item] = self.create()
+        with self.assertRaises(NoRight):
+            s.set_fabric_amount(self.master, item.pk, "main", 3)
+        with self.assertRaises(ActionError):
+            s.set_fabric_amount(self.cutter, item.pk, "comp2", 3)
+        with self.assertRaises(ActionError):
+            s.set_fabric_amount(self.cutter, item.pk, "main", -1)
+
+    def test_hidden_fabric_already_on_item_can_be_kept(self):
+        [item] = self.create()
+        self.velour.active = False
+        self.velour.save()
+        item = s.update_item(self.cutter, item.pk, fabrics=[{"slot": "main", "fabric": self.velour, "meters": 14}])
+        self.assertEqual(int(item.fabrics.get().meters), 14)
+        with self.assertRaises(ActionError):
+            self.create()
+
+    def test_table_no(self):
+        [item] = self.create(table_no=" 7 ")
+        self.assertEqual(item.table_no, "7")
+        item = s.update_item(self.cutter, item.pk, table_no="3")
+        self.assertEqual(item.events.order_by("-id").first().text, "Номер стола: 7 → 3")
+
+
 class WarningsTest(ServiceTest):
     def test_only_indiv_and_by_days(self):
         [item] = self.create(reserve="Х", indiv=True)

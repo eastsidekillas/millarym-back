@@ -1,12 +1,13 @@
 from dataclasses import asdict
 from urllib.parse import quote
 
-from django.http import HttpResponse
+from django.http import Http404, HttpResponse
 from django.utils import timezone
 from django_filters.rest_framework import DjangoFilterBackend
 from drf_spectacular.utils import extend_schema
 from django.db.models import Count, ProtectedError, Q
 from rest_framework import filters, mixins, status, viewsets
+from rest_framework.decorators import action
 from rest_framework.generics import RetrieveUpdateAPIView
 from rest_framework.pagination import LimitOffsetPagination
 from rest_framework.parsers import FormParser, JSONParser, MultiPartParser
@@ -17,6 +18,7 @@ from app_auth.permissions import ReadOrRight, no_right_message
 from app_production.models import Item
 
 from . import exchange
+from .images import jpeg_bytes
 from .models import Category, Deadlines, Fabric, KitOption, ProductModel, Team
 from .serializers import (
     CategorySerializer,
@@ -29,6 +31,20 @@ from .serializers import (
 
 
 XLSX = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+
+
+def jpeg_response(obj) -> HttpResponse:
+    if not obj.photo:
+        raise Http404
+    try:
+        data = jpeg_bytes(obj.photo.path)
+    except OSError:
+        raise Http404
+    response = HttpResponse(data, content_type="image/jpeg")
+    name = f"{obj.name}.jpg"
+    response["Content-Disposition"] = f"inline; filename=photo.jpg; filename*=UTF-8''{quote(name)}"
+    response["Cache-Control"] = "private, max-age=86400"
+    return response
 
 
 class CatalogViewSet(
@@ -89,11 +105,16 @@ class ProductModelViewSet(CatalogViewSet):
     ).order_by("name")
     serializer_class = ProductModelSerializer
 
+    filterset_fields = ["active", "category"]
+    parser_classes = [JSONParser, MultiPartParser, FormParser]
+
     def in_use(self, obj):
         n = Item.all_objects.filter(model=obj).count()
         return used_text(n) if n else ""
-    filterset_fields = ["active", "category"]
-    parser_classes = [JSONParser, MultiPartParser, FormParser]
+
+    @extend_schema(responses={(200, "image/jpeg"): bytes})
+    def jpeg(self, request, pk=None, filename=None):
+        return jpeg_response(self.get_object())
 
 
 class FabricViewSet(CatalogViewSet):
@@ -112,6 +133,10 @@ class FabricViewSet(CatalogViewSet):
     def in_use(self, obj):
         n = obj.item_fabrics.values("item").distinct().count()
         return used_text(n) if n else ""
+
+    @extend_schema(responses={(200, "image/jpeg"): bytes})
+    def jpeg(self, request, pk=None, filename=None):
+        return jpeg_response(self.get_object())
 
 
 class KitOptionViewSet(CatalogViewSet):

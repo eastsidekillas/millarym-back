@@ -37,6 +37,8 @@ class ReportsTest(Fixtures, TestCase):
         data = self.client.get("/api/v1/reports/free-stock/").json()
         self.assertEqual([r["number"] for r in data["rows"]], [c.number, b.number, f.number])
         self.assertEqual(data["rows"][1]["cells"]["where"], "Крой")
+        self.assertEqual([r["group"] for r in data["rows"]], ["Арка по эскизу: 1 шт.", "Бостон: 1 шт.", "Флоренция: 1 шт."])
+        self.assertIsNone(data["rows"][1]["group_photo"])
         data = self.client.get(f"/api/v1/reports/free-stock/?models={self.other_model.pk},custom").json()
         self.assertEqual({r["number"] for r in data["rows"]}, {f.number, c.number})
         models = self.client.get("/api/v1/reports/free-stock/models/").json()
