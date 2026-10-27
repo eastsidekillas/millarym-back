@@ -11,7 +11,7 @@ from app_catalog.models import Deadlines, ProductModel
 from app_production.models import Item, Stage, TrashReason
 from app_production.queries import free_q, late_q
 
-from .rows import Row, fabrics_text, fmt_date, item_title, meters_text, model_photo, photos, ru_key, stage_index, where
+from .rows import Row, fabrics_text, fmt_date, item_title, meters_text, model_photo, photos, ru_key, stage_index, where, where_since
 
 
 class ReportError(Exception):
@@ -247,6 +247,7 @@ def reserved(params: dict) -> Result:
     rows = []
     for i in items:
         row = order_row(i)
+        row.cells["where"] = where_since(i)
         row.group = f"{i.reserve}: {sum(groups[i.reserve].values())} шт."
         if same[(ru_key(i.reserve), ru_key(item_title(i)), fabrics_text(i))] > 1:
             row.mark = "warn"
@@ -261,7 +262,7 @@ def reserved(params: dict) -> Result:
     return Result(
         "Зарезервированные изделия",
         ", ".join(parts).capitalize(),
-        [COL_NUMBER, COL_ITEM, COL_PHOTOS, COL_FABRICS, COL_METERS, COL_WHERE, COL_RESERVED_AT],
+        [COL_NUMBER, COL_ITEM, COL_PHOTOS, COL_FABRICS, COL_METERS, Column("where", "Где сейчас", 20), COL_RESERVED_AT],
         rows,
         summary,
         filename=f"Резерв {text or 'все'} {today_label()}",
