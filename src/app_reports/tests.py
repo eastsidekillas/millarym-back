@@ -1,11 +1,13 @@
+from datetime import date, datetime
 from io import BytesIO
 
 from django.test import TestCase
+from django.utils import timezone
 from openpyxl import load_workbook
 from rest_framework.test import APIClient
 
 from app_production import services as s
-from app_production.models import Stage
+from app_production.models import Item, Stage
 from app_production.tests.base import Fixtures
 
 
@@ -85,6 +87,17 @@ class ReportsTest(Fixtures, TestCase):
         only_fg = self.client.get("/api/v1/reports/reserved/?q=петров&only_fg=1").json()
         self.assertEqual([r["number"] for r in only_fg["rows"]], [a.number])
         self.assertNotIn(c.number, [r["number"] for r in data["rows"]])
+
+    def test_reserved_shows_cover_state_on_cut(self):
+        sewing, ready, waiting = self.make(reserve="Фобос", qty=3)
+        since = timezone.make_aware(datetime(2026, 10, 12, 10))
+        Item.objects.filter(pk__in=[sewing.pk, ready.pk, waiting.pk]).update(stage=Stage.CUT, stage_since=since)
+        Item.objects.filter(pk=sewing.pk).update(sew_at=date(2026, 10, 14))
+        Item.objects.filter(pk=ready.pk).update(sew_at=date(2026, 10, 14), cover_ready_at=date(2026, 10, 20))
+        rows = {r["number"]: r["cells"]["where"] for r in self.client.get("/api/v1/reports/reserved/?q=фобос").json()["rows"]}
+        self.assertEqual(rows[sewing.number], "Крой с 12.10.26\nв шитье с 14.10.26")
+        self.assertEqual(rows[ready.number], "Крой с 12.10.26\nотшит 20.10.26")
+        self.assertEqual(rows[waiting.number], "Крой с 12.10.26\nне в шитье")
 
     def test_orders_include_shipped_not_deleted(self):
         [shipped] = self.make(reserve="Фобос")

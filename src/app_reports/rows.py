@@ -3,7 +3,7 @@ from datetime import date
 
 from django.utils import timezone
 
-from app_production.models import STAGE_ORDER, AmountUnit, FabricSlot, Item, TrashReason
+from app_production.models import STAGE_ORDER, AmountUnit, FabricSlot, Item, Stage, TrashReason
 
 SLOT_ORDER = list(FabricSlot.values)
 
@@ -57,6 +57,21 @@ def where(item: Item) -> str:
         verb = "отгружено" if item.trash_reason == TrashReason.SHIPPED else "удалено"
         return f"Корзина: {verb} {fmt_date(item.trashed_at)}"
     return item.get_stage_display()
+
+
+def where_since(item: Item) -> str:
+    """Этап с датой; на крое — ещё и состояние чехла: контрагенту важно, шьют его или уже отшили."""
+    if item.trashed_at:
+        return where(item)
+    text = f"{item.get_stage_display()} с {fmt_date(item.stage_since)}"
+    if item.stage == Stage.CUT:
+        if item.cover_ready_at:
+            text += f"\nотшит {fmt_date(item.cover_ready_at)}"
+        elif item.sew_at:
+            text += f"\nв шитье с {fmt_date(item.sew_at)}"
+        else:
+            text += "\nне в шитье"
+    return text
 
 
 def stage_index(item: Item) -> int:
