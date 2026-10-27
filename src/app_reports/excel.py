@@ -135,7 +135,9 @@ def build_xlsx(result: Result) -> bytes:
         has_photos = any(col.kind == "photos" for col in columns) and any(p.path for p in row.photos)
         ws.row_dimensions[r].height = max(lines * 12.5 + 5, PHOTO * 0.75 + 8 if has_photos else 0)
 
-    if result.rows and not group:
+    # фильтр нужен и в отчётах с группами (например, по складу в резервах); заголовки групп при фильтре скрываются.
+    # Не ставим, где в заголовках групп картинки: у скрытых строк они наезжали бы на соседние
+    if result.rows and not any(row.group_photo for row in result.rows):
         ws.auto_filter.ref = f"A{HEADER_ROW}:{get_column_letter(len(columns))}{r}"
     ws.freeze_panes = ws.cell(row=HEADER_ROW + 1, column=1)
 

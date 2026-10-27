@@ -59,19 +59,15 @@ def where(item: Item) -> str:
     return item.get_stage_display()
 
 
-def where_since(item: Item) -> str:
-    """Этап с датой; на крое — ещё и состояние чехла: контрагенту важно, шьют его или уже отшили."""
-    if item.trashed_at:
-        return where(item)
-    text = f"{item.get_stage_display()} с {fmt_date(item.stage_since)}"
-    if item.stage == Stage.CUT:
-        if item.cover_ready_at:
-            text += f"\nотшит {fmt_date(item.cover_ready_at)}"
-        elif item.sew_at:
-            text += f"\nв шитье с {fmt_date(item.sew_at)}"
-        else:
-            text += "\nне в шитье"
-    return text
+def sewing(item: Item) -> str:
+    """Отдельная колонка для швейного цеха: что из выданного шьют и что уже отшито. Только на крое."""
+    if item.trashed_at or item.stage != Stage.CUT:
+        return ""
+    if item.cover_ready_at:
+        return f"отшит {fmt_date(item.cover_ready_at)}"
+    if item.sew_at:
+        return f"в шитье {fmt_date(item.sew_at)}"
+    return ""
 
 
 def stage_index(item: Item) -> int:
