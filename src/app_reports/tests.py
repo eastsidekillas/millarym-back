@@ -101,6 +101,7 @@ class ReportsTest(Fixtures, TestCase):
         self.assertEqual({r["where"] for r in rows.values()}, {"Крой"})
         xlsx = load_workbook(BytesIO(self.client.get("/api/v1/reports/reserved/xlsx/?q=фобос").content)).active
         self.assertIn("Отшит / в шитье", [c.value for c in xlsx[6]])
+        self.assertNotIn("Метраж", [c.value for c in xlsx[6]])
         self.assertTrue(xlsx.auto_filter.ref)
 
     def test_orders_include_shipped_not_deleted(self):

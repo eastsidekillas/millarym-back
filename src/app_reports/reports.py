@@ -263,7 +263,7 @@ def reserved(params: dict) -> Result:
     return Result(
         "Зарезервированные изделия",
         ", ".join(parts).capitalize(),
-        [COL_NUMBER, COL_ITEM, COL_PHOTOS, COL_FABRICS, COL_METERS, COL_WHERE, COL_SEWING, COL_RESERVED_AT],
+        [COL_NUMBER, COL_ITEM, COL_PHOTOS, COL_FABRICS, COL_WHERE, COL_SEWING, COL_RESERVED_AT],
         rows,
         summary,
         filename=f"Резерв {text or 'все'} {today_label()}",
