@@ -25,6 +25,7 @@ from .serializers import (
     ItemUpdateSerializer,
     MoveSerializer,
     ReserveSerializer,
+    FabricAmountSerializer,
     MarkDateSerializer,
     UnmarkSerializer,
 )
@@ -154,6 +155,13 @@ class ItemViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, viewsets.Gen
     @action(detail=True, methods=["post"], url_path="cover-ready")
     def cover_ready(self, request, pk=None):
         return self.detail_response(services.mark_cover_ready(request.user, self.item_id(pk)))
+
+    @extend_schema(request=FabricAmountSerializer, responses=ItemDetailSerializer)
+    @action(detail=True, methods=["post"], url_path="fabric-amount")
+    def fabric_amount(self, request, pk=None):
+        data = self.valid(FabricAmountSerializer)
+        item = services.set_fabric_amount(request.user, self.item_id(pk), data["slot"], data["meters"], data["unit"])
+        return self.detail_response(item)
 
     @extend_schema(request=MarkDateSerializer, responses=ItemDetailSerializer)
     @action(detail=True, methods=["post"], url_path="mark-date")

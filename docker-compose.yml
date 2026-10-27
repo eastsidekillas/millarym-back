@@ -24,7 +24,7 @@ services:
       - ${BACKUP_DIR:-./backups}:/backups
     depends_on:
       postgres:
-        condition: service_started
+        condition: service_healthy
       migration:
         condition: service_completed_successfully
       collectstatic:
@@ -46,15 +46,18 @@ services:
     environment: *common-variables
     command: ["django-admin", "migrate", "--no-input"]
     depends_on:
-      - postgres
+      postgres:
+        condition: service_healthy
   scheduler:
     build: .
     env_file: .env
     environment: *common-variables
     command: ["django-admin", "scheduler", "--at", "03:00"]
     depends_on:
-      - postgres
-      - migration
+      postgres:
+        condition: service_healthy
+      migration:
+        condition: service_completed_successfully
     restart: unless-stopped
   backup:
     image: postgres:16-alpine
@@ -84,6 +87,13 @@ services:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
+    # новая (пустая) база создаётся несколько секунд — миграции ждут, пока она начнёт принимать подключения
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U millarym -d millarym"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+      start_period: 5s
     restart: unless-stopped
   frontend:
     build: ../millarym-front

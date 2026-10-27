@@ -10,7 +10,7 @@
 
 @page { size: A4; margin: 7mm 9mm; }
 * { box-sizing: border-box; }
-body { margin: 0; font-family: "Golos Text", sans-serif; font-size: 8.6pt; line-height: 1.25; color: #000; }
+body { margin: 0; font-family: "Golos Text", sans-serif; font-size: 10.5pt; line-height: 1.2; color: #000; }
 .sheet { page-break-after: always; }
 .sheet:last-child { page-break-after: auto; }
 table { border-collapse: collapse; width: 100%; }
@@ -22,29 +22,32 @@ td { padding: 0; vertical-align: middle; }
 .head td { vertical-align: middle; }
 .head .logo { width: 17mm; }
 .head .logo img { width: 15mm; }
-.head .firm { font-size: 7.4pt; color: #222; line-height: 1.25; }
-.head .firm b { font-size: 8.4pt; color: #000; }
+.head .firm { font-size: 8pt; color: #222; line-height: 1.2; }
+.head .firm b { font-size: 9pt; color: #000; }
 .head .qr { width: 15mm; text-align: right; }
 .head .qr img { width: 13mm; height: 13mm; }
 
 .grid { margin-top: 1.5mm; table-layout: fixed; }
-.grid td { border: 0.6pt solid #000; padding: 0.9mm 1.6mm; height: 5.6mm; }
-.grid .k { width: 32mm; }
+.grid td { border: 0.6pt solid #000; padding: 0.5mm 1.6mm; height: 5.9mm; }
+.grid .k { width: 30mm; }
+.grid tr > td:first-child:not(.order) { font-size: 9.5pt; white-space: nowrap; }
 .grid .order { font-size: 17pt; font-weight: 700; text-align: center; }
-.grid .title { font-size: 10.5pt; font-weight: 600; text-align: center; line-height: 1.2; }
-.grid .who { font-size: 10pt; font-weight: 600; text-align: center; line-height: 1.2; }
-.grid .date { font-size: 10.5pt; font-weight: 600; text-align: center; }
-.grid .num { font-size: 21pt; font-weight: 700; text-align: center; font-variant-numeric: tabular-nums; letter-spacing: 0.3pt; }
-.grid .mgr { font-weight: 600; text-align: center; font-size: 9.5pt; }
+.grid .title { font-size: 12.5pt; font-weight: 700; text-align: center; line-height: 1.15; }
+.grid .who { font-size: 10.5pt; font-weight: 600; text-align: center; line-height: 1.15; }
+.grid .date { font-size: 12pt; font-weight: 600; text-align: center; }
+.grid .num { font-size: 23pt; font-weight: 700; text-align: center; font-variant-numeric: tabular-nums; letter-spacing: 0.3pt; }
+.grid .mgr { font-weight: 600; text-align: center; font-size: 10.5pt; white-space: nowrap; }
+.grid .fabric { font-size: 12pt; font-weight: 600; }
+.grid .table-no { font-size: 13pt; font-weight: 700; text-align: center; }
 .grid .m { width: 34mm; white-space: nowrap; }
 .grid .hand { color: #000; }
 
-.guarantee { margin-top: 0.8mm; font-size: 6.6pt; text-align: center; color: #222; }
+.guarantee { margin-top: 0.6mm; font-size: 6.6pt; line-height: 1.15; text-align: center; color: #222; }
 
 .label { border-top: 0.6pt dashed #000; padding-top: 2mm; }
-.label td { vertical-align: top; font-size: 8.4pt; }
-.label .n { width: 32mm; font-size: 15pt; font-weight: 700; }
-.label .t b { display: block; font-size: 9.5pt; }
+.label td { vertical-align: top; font-size: 9.5pt; }
+.label .n { width: 34mm; font-size: 17pt; font-weight: 700; }
+.label .t b { display: block; font-size: 11pt; }
 .label .qr { width: 14mm; text-align: right; }
 .label .qr img { width: 13mm; height: 13mm; }
 </style>
@@ -67,7 +70,7 @@ td { padding: 0; vertical-align: middle; }
     </table>
 
     <table class="grid">
-      <colgroup><col style="width: 32mm"><col><col style="width: 34mm"><col style="width: 38mm"></colgroup>
+      <colgroup><col style="width: 30mm"><col><col style="width: 44mm"><col style="width: 27mm"></colgroup>
       <tr>
         <td class="order">ЗАКАЗ</td>
         <td class="title">{{ p.title }}{% if p.extra %} ({{ p.extra }}){% endif %}</td>
@@ -83,8 +86,8 @@ td { padding: 0; vertical-align: middle; }
       {% for f in p.fabrics %}
       <tr>
         <td>{{ f.label }}</td>
-        <td>{{ f.name }}</td>
-        <td colspan="2" class="m">Кол-во метров: {% if f.meters %}<b>{{ f.meters }}</b>{% else %}<span class="hand">__________</span>{% endif %} м</td>
+        <td class="fabric">{{ f.name }}</td>
+        <td colspan="2" class="m">{% if f.pieces %}Кол-во штук: <b>{{ f.meters }}</b> шт{% else %}Кол-во метров: {% if f.meters %}<b>{{ f.meters }}</b>{% else %}<span class="hand">__________</span>{% endif %} м{% endif %}</td>
       </tr>
       {% endfor %}
       <tr>
@@ -101,7 +104,7 @@ td { padding: 0; vertical-align: middle; }
         <td>ОТК</td>
         <td></td>
         <td>Стол №</td>
-        <td></td>
+        <td class="table-no">{{ p.table_no }}</td>
       </tr>
     </table>
     <div class="guarantee">Гарантийный срок эксплуатации — 18 месяцев. Срок службы изделия — 10 лет. По истечении срока службы изделие эксплуатации не подлежит. ГОСТ 19917-2014</div>

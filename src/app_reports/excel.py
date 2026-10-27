@@ -24,29 +24,33 @@ HEAD_FILL = "EEF3EC"
 MARK_FILL = {"warn": "FFF4E0", "crit": "FBE9E7"}
 PHOTO = 44
 PHOTO_GAP = 4
+GROUP_PHOTO = (120, 60)
 HEADER_ROW = 6
 
 thin = Side(style="thin", color=LINE)
 border = Border(left=thin, right=thin, top=thin, bottom=thin)
 
 
-def _photo(path: str) -> XlImage | None:
+def _photo(path: str, size: tuple[int, int] = (PHOTO, PHOTO), whole: bool = False) -> XlImage | None:
+    """whole — диван целиком, с белыми полями; образец ткани обрезается в квадрат."""
+    w, h = size
     try:
         with Image.open(path) as src:
-            img = ImageOps.fit(ImageOps.exif_transpose(src).convert("RGB"), (PHOTO * 2, PHOTO * 2))
+            img = ImageOps.exif_transpose(src).convert("RGB")
+            img = ImageOps.pad(img, (w * 2, h * 2), color="white") if whole else ImageOps.fit(img, (w * 2, h * 2))
     except OSError:
         return None
     buf = BytesIO()
     img.save(buf, "PNG")
     buf.seek(0)
     xl = XlImage(buf)
-    xl.width = xl.height = PHOTO
+    xl.width, xl.height = w, h
     return xl
 
 
 def _place(ws, image: XlImage, col: int, row: int, x: int) -> None:
     marker = AnchorMarker(col=col - 1, colOff=pixels_to_EMU(x), row=row - 1, rowOff=pixels_to_EMU(4))
-    size = XDRPositiveSize2D(pixels_to_EMU(PHOTO), pixels_to_EMU(PHOTO))
+    size = XDRPositiveSize2D(pixels_to_EMU(image.width), pixels_to_EMU(image.height))
     image.anchor = OneCellAnchor(_from=marker, ext=size)
     ws.add_image(image)
 
@@ -87,7 +91,7 @@ def build_xlsx(result: Result) -> bytes:
             most = max((len(r.photos) for r in result.rows), default=1)
             width = max(8, round((most * (PHOTO + PHOTO_GAP) + 8) / 7))
         if c == 1:
-            width = max(width, 12)
+            width = max(width, 19 if any(r.group_photo for r in result.rows) else 12)
         ws.column_dimensions[get_column_letter(c)].width = width
     ws.row_dimensions[HEADER_ROW].height = 22
 
@@ -97,11 +101,15 @@ def build_xlsx(result: Result) -> bytes:
         r += 1
         if row.group and row.group != group:
             group = row.group
-            cell = ws.cell(row=r, column=1, value=group)
+            image = _photo(row.group_photo.path, GROUP_PHOTO, whole=True) if row.group_photo and row.group_photo.path else None
+            first = 2 if image and len(columns) > 1 else 1
+            cell = ws.cell(row=r, column=first, value=group)
             cell.font = Font(name=FONT, size=11, bold=True, color=ACCENT)
-            cell.alignment = Alignment(vertical="bottom")
-            ws.merge_cells(start_row=r, start_column=1, end_row=r, end_column=len(columns))
-            ws.row_dimensions[r].height = 24
+            cell.alignment = Alignment(vertical="center" if image else "bottom")
+            ws.merge_cells(start_row=r, start_column=first, end_row=r, end_column=max(len(columns), first))
+            ws.row_dimensions[r].height = GROUP_PHOTO[1] * 0.75 + 8 if image else 24
+            if image:
+                _place(ws, image, 1, r, 4)
             r += 1
         lines = 1
         for c, col in enumerate(columns, start=1):

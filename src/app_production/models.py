@@ -31,6 +31,11 @@ class FabricSlot(models.TextChoices):
     COMP2 = "comp2", "Компаньон 2"
 
 
+class AmountUnit(models.TextChoices):
+    METERS = "m", "м"
+    PIECES = "pcs", "шт"
+
+
 class NumberSequence(models.Model):
     period = models.PositiveSmallIntegerField("год", unique=True)
     last_value = models.PositiveIntegerField("последний номер", default=0)
@@ -75,6 +80,7 @@ class Item(models.Model):
     custom_name = models.CharField("название вне справочника", max_length=200, blank=True, default="")
     extra = models.CharField("комплектация, дополнения", max_length=500, blank=True, default="")
     comment = models.TextField("комментарий", blank=True, default="")
+    table_no = models.CharField("номер стола", max_length=30, blank=True, default="")
 
     reserve = models.CharField("резерв", max_length=300, blank=True, default="")
     reserved_at = models.DateTimeField("резерв с", null=True, blank=True)
@@ -168,6 +174,8 @@ class ItemFabric(models.Model):
     slot = models.CharField("место", max_length=10, choices=FabricSlot.choices)
     fabric = models.ForeignKey(Fabric, models.PROTECT, related_name="item_fabrics", verbose_name="ткань")
     meters = models.DecimalField("метраж", max_digits=6, decimal_places=2, null=True, blank=True)
+    # у компаньонов бывает в штуках (подушки, детали), у основы — всегда метры
+    unit = models.CharField("единица", max_length=3, choices=AmountUnit.choices, default=AmountUnit.METERS)
 
     class Meta:
         verbose_name = "ткань изделия"

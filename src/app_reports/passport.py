@@ -25,8 +25,8 @@ def meters(value) -> str:
 
 PASSPORT_SLOTS = [
     (FabricSlot.MAIN, "Ткань основа"),
-    (FabricSlot.COMP1, "Ткань компаньон 1"),
-    (FabricSlot.COMP2, "Ткань компаньон 2"),
+    (FabricSlot.COMP1, "Компаньон 1"),
+    (FabricSlot.COMP2, "Компаньон 2"),
 ]
 
 
@@ -35,7 +35,8 @@ def fabric_rows(item: Item) -> list[dict]:
     rows = []
     for slot, label in PASSPORT_SLOTS:
         f = by_slot.get(slot)
-        rows.append({"label": label, "name": f.fabric.name if f else "", "meters": meters(f.meters) if f else ""})
+        pieces = bool(f) and f.unit == "pcs"
+        rows.append({"label": label, "name": f.fabric.name if f else "", "meters": meters(f.meters) if f else "", "pieces": pieces})
     return rows
 
 
@@ -50,6 +51,7 @@ def passport_context(item: Item) -> dict:
         "indiv_note": item.indiv_note,
         "created": fmt_date(item.created_at),
         "manager": item.manager.short_name if item.manager_id else "",
+        "table_no": item.table_no,
         "fabrics": fabric_rows(item),
         "fabrics_short": "; ".join(f"{f.get_slot_display()}: {f.fabric.name}" for f in item_fabrics(item)),
         "qr": qr_svg(card_url(item)),

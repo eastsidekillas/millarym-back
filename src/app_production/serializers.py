@@ -5,10 +5,11 @@ from drf_spectacular.types import OpenApiTypes
 from drf_spectacular.utils import extend_schema_field
 from rest_framework import serializers
 
+from app_catalog.images import jpeg_url
 from app_catalog.models import Fabric, ProductModel, Team
 
 from .actions import available_actions
-from .models import FabricSlot, Item, ItemEvent, ItemFabric, Stage
+from .models import AmountUnit, FabricSlot, Item, ItemEvent, ItemFabric, Stage
 from .services import MAX_QTY
 
 
@@ -20,6 +21,7 @@ class RefSerializer(serializers.Serializer):
 class FabricRefSerializer(RefSerializer):
     photo_thumb = serializers.CharField(allow_null=True)
     photo = serializers.CharField(allow_null=True)
+    photo_jpeg = serializers.CharField(allow_null=True)
 
 
 class ItemRefSerializer(serializers.Serializer):
@@ -42,7 +44,7 @@ class ItemFabricSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = ItemFabric
-        fields = ["slot", "slot_label", "fabric", "meters"]
+        fields = ["slot", "slot_label", "fabric", "meters", "unit"]
 
     @extend_schema_field(FabricRefSerializer)
     def get_fabric(self, obj):
@@ -52,6 +54,7 @@ class ItemFabricSerializer(serializers.ModelSerializer):
             "name": fabric.name,
             "photo_thumb": fabric.photo_thumb.url if fabric.photo_thumb else None,
             "photo": fabric.photo.url if fabric.photo else None,
+            "photo_jpeg": jpeg_url("fabrics", fabric),
         }
 
 
@@ -70,7 +73,7 @@ class ItemSerializer(serializers.ModelSerializer):
     class Meta:
         model = Item
         fields = [
-            "id", "number", "legacy_number", "model", "custom_name", "title", "extra", "comment",
+            "id", "number", "legacy_number", "model", "custom_name", "title", "extra", "comment", "table_no",
             "reserve", "reserved_at", "is_free",
             "stage", "stage_label", "stage_since", "team",
             "fabric_ordered_at", "fabric_arrived_at", "sew_at", "cover_ready_at", "work_at", "fg_at",
@@ -137,6 +140,13 @@ class FabricInputSerializer(serializers.Serializer):
     slot = serializers.ChoiceField(choices=FabricSlot.choices)
     fabric = serializers.PrimaryKeyRelatedField(queryset=Fabric.objects.all())
     meters = serializers.DecimalField(max_digits=6, decimal_places=2, min_value=0, required=False, allow_null=True)
+    unit = serializers.ChoiceField(choices=AmountUnit.choices, required=False, default=AmountUnit.METERS)
+
+
+class FabricAmountSerializer(serializers.Serializer):
+    slot = serializers.ChoiceField(choices=FabricSlot.choices)
+    meters = serializers.DecimalField(max_digits=6, decimal_places=2, min_value=0, allow_null=True)
+    unit = serializers.ChoiceField(choices=AmountUnit.choices, required=False, default=AmountUnit.METERS)
 
 
 class ItemCreateSerializer(serializers.Serializer):
@@ -148,6 +158,7 @@ class ItemCreateSerializer(serializers.Serializer):
     indiv = serializers.BooleanField(required=False, default=False)
     indiv_note = serializers.CharField(max_length=300, required=False, allow_blank=True, default="")
     comment = serializers.CharField(required=False, allow_blank=True, default="")
+    table_no = serializers.CharField(max_length=30, required=False, allow_blank=True, default="")
     qty = serializers.IntegerField(min_value=1, max_value=MAX_QTY, required=False, default=1)
 
 
@@ -159,6 +170,7 @@ class ItemUpdateSerializer(serializers.Serializer):
     indiv = serializers.BooleanField(required=False)
     indiv_note = serializers.CharField(max_length=300, required=False, allow_blank=True)
     comment = serializers.CharField(required=False, allow_blank=True)
+    table_no = serializers.CharField(max_length=30, required=False, allow_blank=True)
 
 
 class MoveSerializer(serializers.Serializer):

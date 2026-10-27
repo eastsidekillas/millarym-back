@@ -327,3 +327,28 @@ class FabricMatchTest(Fixtures, TestCase):
         item.refresh_from_db()
         self.assertEqual((item.model, item.custom_name, item.extra), (douglas, "", "Накладки венге"))
         self.assertIn("→ Дуглас 1600", item.events.order_by("-id").first().text)
+
+
+class NewMatchingTest(SimpleTestCase):
+    def test_fabric_words_in_other_order_and_one_typo(self):
+        from types import SimpleNamespace as N
+
+        from app_production.legacy.fabrics import FabricMatcher
+
+        fabrics = [N(name=n, photo="x", active=True) for n in ("Kioto 4 dove", "Kioto 6 java", "Safary chesnut", "Monako 05")]
+        m = FabricMatcher(fabrics)
+        self.assertEqual(m.find("kioto dove (4)")[0].name, "Kioto 4 dove")
+        self.assertEqual(m.find("kioto jave (6)")[0].name, "Kioto 6 java")
+        self.assertEqual(m.find("safary chestnut 4k")[0].name, "Safary chesnut")
+        self.assertIsNone(m.find("monako 4 4k")[0])  # другая цифра — не опечатка
+
+    def test_model_old_names(self):
+        from types import SimpleNamespace as N
+
+        models = [N(name=n) for n in ("Кубик-Рубик пуф", "Мюнхен-1 Гранд диван", "Мюнхен-1 XL диван", "Мюнхен-1 ДУ")]
+        m = t.ModelMatcher(models)
+        self.assertEqual(m.match("Пуф Рубик")[0].name, "Кубик-Рубик пуф")
+        self.assertEqual(m.match("Мюнхен Гранд-1 диван правый")[0].name, "Мюнхен-1 Гранд диван")
+        self.assertEqual(m.match("Мюнхен XL-1 диван")[0].name, "Мюнхен-1 XL диван")
+        model, rest = m.match("Мюнхен-1 диван левый")
+        self.assertEqual((model.name, rest), ("Мюнхен-1 ДУ", "левый"))

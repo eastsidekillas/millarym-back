@@ -24,5 +24,8 @@ urlpatterns = [
     path("deadlines/", DeadlinesView.as_view(), name="deadlines"),
     path("catalog/export/", CatalogExportView.as_view(), name="catalog-export"),
     path("catalog/import/", CatalogImportView.as_view(), name="catalog-import"),
+    # без слэша в конце: имя файла в адресе — «Сохранить картинку как…» предложит «Manila 01.jpg»
+    path("fabrics/<int:pk>/jpeg/<str:filename>", FabricViewSet.as_view({"get": "jpeg"}), name="fabric-jpeg"),
+    path("models/<int:pk>/jpeg/<str:filename>", ProductModelViewSet.as_view({"get": "jpeg"}), name="model-jpeg"),
     *router.urls,
 ]
