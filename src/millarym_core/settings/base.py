@@ -1,5 +1,4 @@
 import os
-import sys
 from datetime import timedelta
 from pathlib import Path
 
@@ -172,10 +171,6 @@ BACKUP_AT = os.getenv("BACKUP_AT", "02:30")
 BACKUP_KEEP_DAYS = int(os.getenv("BACKUP_KEEP_DAYS", "14"))
 
 SITE_URL = config("SITE_URL", default="http://localhost:4200")
-
-# выгрузки Excel: xls — Excel 97–2003 (через LibreOffice, см. millarym_core/xls.py), xlsx — современный.
-# В тестах — xlsx: их читает openpyxl, и LibreOffice на каждый тест — долго
-EXCEL_FORMAT = config("EXCEL_FORMAT", default="xlsx" if "test" in sys.argv[1:2] else "xls")
 
 LOGGING = {
     "version": 1,

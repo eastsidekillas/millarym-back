@@ -15,8 +15,6 @@ from openpyxl import Workbook, load_workbook
 from openpyxl.styles import Font, PatternFill
 from openpyxl.worksheet.datavalidation import DataValidation
 
-from millarym_core.xls import ConvertError, is_xls, to_xlsx
-
 from .models import Category, Fabric, KitOption, ProductModel, Team
 
 YES = {"да", "yes", "1", "true", "+", "активна", "активен"}
@@ -309,15 +307,10 @@ def import_xlsx(content: bytes, can, dry_run: bool) -> tuple[list[SheetReport], 
 
     Второе значение — файл из другой базы: тогда ID не смотрим, записи находим по названию.
     """
-    if is_xls(content):
-        try:
-            content = to_xlsx(content)
-        except ConvertError:
-            raise ValueError("Не удалось прочитать файл .xls — сохраните его как .xlsx или выгрузите справочники заново.")
     try:
         wb = load_workbook(BytesIO(content), read_only=True, data_only=True)
     except Exception:
-        raise ValueError("Не удалось открыть файл — нужен файл Excel, выгруженный из «Справочников».")
+        raise ValueError("Не удалось открыть файл — нужен .xlsx, выгруженный из «Справочников».")
     reports = []
     foreign = file_base(wb) != base_id()
     known = [s for s in SHEETS if s.title in wb.sheetnames]

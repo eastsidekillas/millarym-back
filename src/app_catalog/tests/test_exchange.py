@@ -1,15 +1,12 @@
 from io import BytesIO
 
 from django.core.files.uploadedfile import SimpleUploadedFile
-from unittest import skipUnless
-
-from django.test import TestCase, override_settings
+from django.test import TestCase
 from openpyxl import load_workbook
 from rest_framework.test import APIClient
 
 from app_catalog.models import Category, Fabric, KitOption, ProductModel, Team
 from app_production.tests.base import Fixtures
-from millarym_core.xls import soffice
 
 
 def sheet_rows(ws):
@@ -42,20 +39,6 @@ class ExchangeTest(Fixtures, TestCase):
 
     def sheet(self, data, title):
         return next(s for s in data["sheets"] if s["title"] == title)
-
-    @skipUnless(soffice(), "нужен LibreOffice")
-    @override_settings(EXCEL_FORMAT="xls")
-    def test_xls_roundtrip(self):
-        """Старый Excel: выгрузка в .xls, правка, загрузка того же .xls — записи находятся по ID."""
-        r = self.client.get("/api/v1/catalog/export/")
-        self.assertEqual(r["Content-Type"], "application/vnd.ms-excel")
-        self.assertIn(".xls", r["Content-Disposition"])
-        self.assertNotIn(".xlsx", r["Content-Disposition"])
-        self.assertEqual(r.content[:4], b"\xd0\xcf\x11\xe0")
-        upload = SimpleUploadedFile("c.xls", r.content)
-        data = self.client.post("/api/v1/catalog/import/?dry_run=1", {"file": upload}, format="multipart").json()
-        self.assertFalse(data.get("foreign"), data)
-        self.assertTrue(all(not s["created"] and not s["updated"] and not s["errors"] for s in data["sheets"]), data)
 
     def test_roundtrip_without_changes_creates_nothing(self):
         before = (ProductModel.objects.count(), Category.objects.count(), Fabric.objects.count(), Team.objects.count())

@@ -1,9 +1,7 @@
 from datetime import date, datetime
 from io import BytesIO
 
-from unittest import skipUnless
-
-from django.test import TestCase, override_settings
+from django.test import TestCase
 from django.utils import timezone
 from openpyxl import load_workbook
 from rest_framework.test import APIClient
@@ -11,7 +9,6 @@ from rest_framework.test import APIClient
 from app_production import services as s
 from app_production.models import Item, Stage
 from app_production.tests.base import Fixtures
-from millarym_core.xls import soffice, to_xlsx
 
 
 class ReportsTest(Fixtures, TestCase):
@@ -90,18 +87,6 @@ class ReportsTest(Fixtures, TestCase):
         only_fg = self.client.get("/api/v1/reports/reserved/?q=петров&only_fg=1").json()
         self.assertEqual([r["number"] for r in only_fg["rows"]], [a.number])
         self.assertNotIn(c.number, [r["number"] for r in data["rows"]])
-
-    @skipUnless(soffice(), "нужен LibreOffice")
-    @override_settings(EXCEL_FORMAT="xls")
-    def test_xls_for_old_excel(self):
-        self.make(reserve="Фобос")
-        r = self.client.get("/api/v1/reports/reserved/xlsx/?q=фобос")
-        self.assertEqual(r["Content-Type"], "application/vnd.ms-excel")
-        self.assertIn("filename*=UTF-8''", r["Content-Disposition"])
-        self.assertTrue(r["Content-Disposition"].endswith(".xls"), r["Content-Disposition"])
-        sheet = load_workbook(BytesIO(to_xlsx(r.content))).active
-        self.assertIn("Отшит / в шитье", [c.value for c in sheet[6]])
-        self.assertTrue(sheet.auto_filter.ref)
 
     def test_reserved_shows_cover_state_on_cut(self):
         sewing, ready, waiting = self.make(reserve="Фобос", qty=3)

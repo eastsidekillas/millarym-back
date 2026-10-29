@@ -15,7 +15,6 @@ from rest_framework.response import Response
 
 from app_auth.permissions import ReadOrRight
 from app_reports.pdf import render_pdf
-from millarym_core.xls import excel_response
 
 from .blank import build_blank
 from .models import Claim, ClaimFile, ClaimPhoto, ClaimState
@@ -172,4 +171,8 @@ class ClaimViewSet(
     @extend_schema(responses={(200, XLSX): OpenApiTypes.BINARY})
     @action(detail=False)
     def blank(self, request):
-        return excel_response(build_blank(), "Акт-претензия, бланк для клиента", "claim-blank")
+        response = HttpResponse(build_blank(), content_type=XLSX)
+        name = quote("Акт-претензия, бланк для клиента.xlsx")
+        response["Content-Disposition"] = f"attachment; filename=claim-blank.xlsx; filename*=UTF-8''{name}"
+        response["Access-Control-Expose-Headers"] = "Content-Disposition"
+        return response
