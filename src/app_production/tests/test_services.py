@@ -163,6 +163,34 @@ class MoveTest(ServiceTest):
         with self.assertRaisesMessage(ActionError, "«Заказы»"):
             s.move(self.director, item.pk, Stage.ORDERS)
 
+    def test_back_to_orders_after_mistaken_cut(self):
+        [item] = self.create(reserve="Козырева")
+        s.move(self.cutter, item.pk, Stage.CUT)
+        item = s.move(self.director, item.pk, Stage.ORDERS)
+        self.assertEqual(item.stage, Stage.ORDERS)
+        self.assertEqual(item.events.order_by("-id").first().text, "Крой → Заказы")
+        # на «Заказах» снова доступен заказ ткани
+        self.assertIsNotNone(s.mark_fabric_ordered(self.cutter, item.pk).fabric_ordered_at)
+
+    def test_cover_and_work_with_date(self):
+        from datetime import timedelta
+
+        today = timezone.localdate()
+        [item] = self.create()
+        Item.objects.filter(pk=item.pk).update(created_at=timezone.now() - timedelta(days=10), stage_since=timezone.now() - timedelta(days=10))
+        item = s.move(self.cutter, item.pk, Stage.COVER, day=today - timedelta(days=4))
+        self.assertEqual((item.sew_at, item.cover_ready_at), (today - timedelta(days=4),) * 2)
+        self.assertEqual(timezone.localtime(item.stage_since).date(), today - timedelta(days=4))
+        self.assertTrue(item.events.order_by("-id").first().text.endswith(f"дата {today - timedelta(days=4):%d.%m.%y}"))
+        with self.assertRaisesMessage(ActionError, "раньше, чем чехол попал на склад"):
+            s.move(self.master, item.pk, Stage.WORK, team=self.team, day=today - timedelta(days=5))
+        item = s.move(self.master, item.pk, Stage.WORK, team=self.team, day=today - timedelta(days=2))
+        self.assertEqual(item.work_at, today - timedelta(days=2))
+        with self.assertRaises(NoRight):
+            s.set_mark_date(self.cutter, item.pk, "work", today - timedelta(days=3))
+        item = s.set_mark_date(self.master, item.pk, "work", today - timedelta(days=3))
+        self.assertEqual((item.work_at, timezone.localtime(item.stage_since).date()), (today - timedelta(days=3),) * 2)
+
     def test_same_stage_and_unknown_stage(self):
         [item] = self.create()
         with self.assertRaisesMessage(ActionError, "уже на этапе"):

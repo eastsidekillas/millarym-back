@@ -176,7 +176,7 @@ class ItemUpdateSerializer(serializers.Serializer):
 class MoveSerializer(serializers.Serializer):
     to = serializers.ChoiceField(choices=Stage.choices)
     team = serializers.PrimaryKeyRelatedField(queryset=Team.objects.all(), required=False, allow_null=True)
-    date = serializers.DateField(required=False, allow_null=True, help_text="только для СГП: дата перевода")
+    date = serializers.DateField(required=False, allow_null=True, help_text="дата перевода: склад чехлов, в работу, СГП")
 
 
 class BulkMoveSerializer(MoveSerializer):
@@ -188,7 +188,7 @@ class UnmarkSerializer(serializers.Serializer):
 
 
 class MarkDateSerializer(serializers.Serializer):
-    mark = serializers.ChoiceField(choices=["fabric_ordered", "fabric_arrived", "sew", "cover_ready", "fg"])
+    mark = serializers.ChoiceField(choices=["fabric_ordered", "fabric_arrived", "sew", "cover_ready", "work", "fg"])
     date = serializers.DateField()
 
 
