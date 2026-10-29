@@ -8,6 +8,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from app_production.queries import base_queryset
+from millarym_core.xls import excel_response
 
 from .excel import build_xlsx
 from .passport import MAX_ITEMS, mark_printed, render_passports
@@ -24,11 +25,7 @@ PARAMS = [
 
 
 def xlsx_response(result) -> HttpResponse:
-    response = HttpResponse(build_xlsx(result), content_type=XLSX)
-    name = f"{result.filename}.xlsx"
-    response["Content-Disposition"] = f"attachment; filename=report.xlsx; filename*=UTF-8''{quote(name)}"
-    response["Access-Control-Expose-Headers"] = "Content-Disposition"
-    return response
+    return excel_response(build_xlsx(result), result.filename, "report")
 
 
 def run(kind: str, params):

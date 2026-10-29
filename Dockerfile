@@ -20,8 +20,10 @@ RUN poetry install --no-interaction --no-ansi --without=dev
 
 
 FROM python:3.12-slim AS main
+# libreoffice-calc-nogui — выгрузки в Excel 97–2003 (.xls) для старого офиса на заводе, см. millarym_core/xls.py
 RUN apt-get update && \
-    apt-get install -y --no-install-recommends libpq5 libpango-1.0-0 libpangoft2-1.0-0 libharfbuzz-subset0 && \
+    apt-get install -y --no-install-recommends libpq5 libpango-1.0-0 libpangoft2-1.0-0 libharfbuzz-subset0 \
+        libreoffice-calc-nogui fonts-dejavu-core && \
     rm -rf /var/lib/apt/lists/*
 WORKDIR /app
 COPY --from=builder /app /app
