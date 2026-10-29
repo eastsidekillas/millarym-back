@@ -183,12 +183,19 @@ def create_items(
     return items
 
 
+# этапы, на которые переводят с датой: кнопку жмут не в тот день, когда чехлы сдали на склад, выдали в работу, перевели на СГП
+DATED = {Stage.COVER: "на склад чехлов", Stage.WORK: "в работу", Stage.FG: "на СГП"}
+
+
 def _enter_stage(item: Item, to: str, team: Team | None, day=None) -> None:
     today = timezone.localdate()
+    day = day or today
     target = STAGE_ORDER.index(to)
     if target >= STAGE_ORDER.index(Stage.COVER):
-        item.sew_at = item.sew_at or today
-        item.cover_ready_at = item.cover_ready_at or today
+        # чехол на складе — значит, выдан в шитьё и отшит не позже этого дня
+        mark = day if to == Stage.COVER else today
+        item.sew_at = item.sew_at or mark
+        item.cover_ready_at = item.cover_ready_at or mark
     if to == Stage.WORK:
         team = team or item.team
         if team is None:
@@ -196,26 +203,33 @@ def _enter_stage(item: Item, to: str, team: Team | None, day=None) -> None:
         if not team.active:
             raise ActionError(f"Бригада «{team.name}» скрыта из справочника.")
         item.team = team
-        item.work_at = today
-    item.stage = to
-    item.stage_since = timezone.now()
+        item.work_at = day
     if to == Stage.FG:
-        # на СГП перевели раньше, чем нажали кнопку, — дату ставят вручную
-        day = day or today
-        check_fg_date(item, day)
         item.fg_at = day
-        if day != today:
-            item.stage_since = timezone.make_aware(datetime.combine(day, time(12)))
+    item.stage = to
+    item.stage_since = timezone.now() if day == today else timezone.make_aware(datetime.combine(day, time(12)))
+
+
+def check_move_date(item: Item, to: str, day) -> None:
+    """Дата перевода: не в будущем, не раньше заведения и не раньше, чем изделие попало на нынешний этап."""
+    where = DATED.get(to, f"на «{stage_label(to)}»")
+    if day > timezone.localdate():
+        raise ActionError(f"Дата перевода {where} не может быть позже сегодняшней.")
+    created = timezone.localtime(item.created_at).date()
+    if day < created:
+        raise ActionError(f"{item.number}: дата перевода {where} раньше, чем заведено изделие ({created:%d.%m.%y}).")
+    if to == Stage.FG and item.work_at and day < item.work_at:
+        raise ActionError(f"{item.number}: дата СГП раньше выдачи в работу ({item.work_at:%d.%m.%y}).")
+    if to == Stage.WORK and item.stage == Stage.COVER:
+        since = timezone.localtime(item.stage_since).date()
+        if day < since:
+            raise ActionError(f"{item.number}: дата выдачи в работу раньше, чем чехол попал на склад ({since:%d.%m.%y}).")
+    if to == Stage.COVER and item.cover_ready_at and day < item.cover_ready_at:
+        raise ActionError(f"{item.number}: дата перевода на склад чехлов раньше «Отшит» ({item.cover_ready_at:%d.%m.%y}).")
 
 
 def check_fg_date(item: Item, day) -> None:
-    if day > timezone.localdate():
-        raise ActionError("Дата перевода на СГП не может быть позже сегодняшней.")
-    if item.work_at and day < item.work_at:
-        raise ActionError(f"{item.number}: дата СГП раньше выдачи в работу ({item.work_at:%d.%m.%y}).")
-    created = timezone.localtime(item.created_at).date()
-    if day < created:
-        raise ActionError(f"{item.number}: дата СГП раньше, чем заведено изделие ({created:%d.%m.%y}).")
+    check_move_date(item, Stage.FG, day)
 
 
 def _move(user, item: Item, to: str, team: Team | None, day=None) -> Item:
@@ -228,16 +242,20 @@ def _move(user, item: Item, to: str, team: Team | None, day=None) -> Item:
         require(user, MOVE_RIGHT[to])
     else:
         require(user, "move_any")
-        if to == Stage.ORDERS:
-            raise ActionError("На «Заказы» перемещать нельзя — туда попадают только новые изделия с резервом.")
+        # назад на «Заказы» — если по ошибке нажали «В крой»: там отмечают заказ ткани
+        if to == Stage.ORDERS and not item.reserve:
+            raise ActionError(f"{item.number} без резерва — на «Заказы» попадают только изделия с резервом. Сначала впишите резерв.")
+    day = day if to in DATED else None
+    if day:
+        check_move_date(item, to, day)
     source = item.stage
-    _enter_stage(item, to, team, day if to == Stage.FG else None)
+    _enter_stage(item, to, team, day)
     item.save()
     text = f"{stage_label(source)} → {stage_label(to)}"
     if to == Stage.WORK:
         text += f", бригада {item.team.name}"
-    if to == Stage.FG and item.fg_at != timezone.localdate():
-        text += f", дата {item.fg_at:%d.%m.%y}"
+    if day and day != timezone.localdate():
+        text += f", дата {day:%d.%m.%y}"
     log(item, user, EventKind.MOVE, text, source=source, to=to, team=item.team_id if to == Stage.WORK else None)
     return item
 
@@ -364,8 +382,10 @@ MARKS = {
     "sew": (Stage.CUT, "sew_at", EventKind.SEW, "Выдано в шитьё"),
     "cover_ready": (Stage.CUT, "cover_ready_at", EventKind.COVER_READY, "Отшит"),
     # только для правки даты; снять нельзя — для этого «Исправить этап…»
+    "work": (Stage.WORK, "work_at", EventKind.MOVE, "Выдано в работу"),
     "fg": (Stage.FG, "fg_at", EventKind.MOVE, "На СГП"),
 }
+MARK_RIGHT = {"work": MOVE_RIGHT[Stage.WORK], "fg": MOVE_RIGHT[Stage.FG]}
 
 
 @transaction.atomic
@@ -374,7 +394,7 @@ def set_mark_date(user, item_id: int, mark: str, day) -> Item:
     if mark not in MARKS:
         raise ActionError("Неизвестная отметка.")
     _, field, kind, text = MARKS[mark]
-    require(user, MOVE_RIGHT[Stage.FG] if mark == "fg" else "marks")
+    require(user, MARK_RIGHT.get(mark, "marks"))
     item = lock(item_id)
     not_in_trash(item)
     old = getattr(item, field)
@@ -397,8 +417,10 @@ def set_mark_date(user, item_id: int, mark: str, day) -> Item:
         raise ActionError(f"«Выдано в шитьё» не может быть позже «Отшит» ({item.cover_ready_at:%d.%m.%y}).")
     if mark == "fg":
         check_fg_date(item, day)
-        if item.stage == Stage.FG:
-            item.stage_since = timezone.make_aware(datetime.combine(day, time(12)))
+    if mark == "work" and item.fg_at and day > item.fg_at:
+        raise ActionError(f"«Выдано в работу» не может быть позже «На СГП» ({item.fg_at:%d.%m.%y}).")
+    if mark in MARK_RIGHT and item.stage == MARKS[mark][0]:
+        item.stage_since = timezone.make_aware(datetime.combine(day, time(12)))
     if mark == "fabric_arrived" and item.fabric_ordered_at and day < item.fabric_ordered_at:
         raise ActionError(f"«Ткань пришла» не может быть раньше «Ткань заказана» ({item.fabric_ordered_at:%d.%m.%y}).")
     if mark == "fabric_ordered" and item.fabric_arrived_at and day > item.fabric_arrived_at:
