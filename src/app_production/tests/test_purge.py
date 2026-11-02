@@ -79,3 +79,20 @@ class PurgeTest(Fixtures, TestCase):
         self.assertTrue(data["rows"][0]["cells"]["where"].startswith("Отгружено "))
         reserved = self.client.get("/api/v1/reports/reserved/?q=петров").json()
         self.assertEqual(reserved["total"], 0)
+
+
+class ReserveReportsOrderTest(Fixtures, TestCase):
+    @classmethod
+    def setUpTestData(cls):
+        cls.make_fixtures()
+
+    def test_items_of_one_counterparty_go_alphabetically(self):
+        [florence] = s.create_items(self.manager, model=self.other_model, fabrics=self.fabrics(), reserve="ИП Петров")
+        [boston] = s.create_items(self.manager, model=self.model, fabrics=self.fabrics(), reserve="ИП Петров")
+        [anna] = s.create_items(self.manager, model=self.other_model, fabrics=self.fabrics(), reserve="ИП Андреев")
+        client = APIClient()
+        client.force_authenticate(self.master)
+        expected = [anna.number, boston.number, florence.number]
+        for report in ("orders-by-reserve", "reserved"):
+            data = client.get(f"/api/v1/reports/{report}/?q=ИП").json()
+            self.assertEqual([r["number"] for r in data["rows"]], expected, report)
