@@ -17,7 +17,6 @@ box = Border(left=line, right=line, top=line, bottom=line)
 FIELDS = [
     ("Изделие", 24),
     ("Номер изделия и цвет", 24),
-    ("Деталь", 24),
     ("Описание претензии", 90),
     ("Данные с упаковки", 36),
     ("№ ТН и дата отгрузки", 24),
@@ -86,8 +85,10 @@ def build_blank() -> bytes:
         prompt="Выберите из списка",
     )
     ws.add_data_validation(senders)
-    senders.add(ws.cell(first + 6, 2))
-    ws.cell(first + 8, 2).number_format = "DD.MM.YYYY"
+    labels = [label for label, _ in FIELDS]
+    sender_row = first + next(i for i, label in enumerate(labels) if label.startswith("Наименование отправителя"))
+    senders.add(ws.cell(sender_row, 2))
+    ws.cell(first + labels.index("Дата отгрузки конечному покупателю"), 2).number_format = "DD.MM.YYYY"
 
     sign = first + len(FIELDS) + 2
     ws.row_dimensions[sign].height = 24

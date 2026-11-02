@@ -13,7 +13,7 @@ User = get_user_model()
 
 EDITABLE = [
     "act_date", "manager", "counterparty", "item", "product", "item_number", "color", "part", "description",
-    "package_data", "waybill", "sender", "invoice_price", "customer_shipped_at", "demands",
+    "package_data", "waybill", "sender", "invoice_price", "customer_shipped_at", "demands", "manager_work",
     "claim_type", "arrived_at", "kit", "sent_back_at",
     "appearance", "research", "defect_type", "remedy",
     "restore_cost", "finance_note", "video_links",

@@ -179,6 +179,11 @@ def order_row(item: Item) -> Row:
     )
 
 
+def by_reserve_then_title(item: Item) -> tuple:
+    """По контрагенту, внутри контрагента — изделия по алфавиту, одинаковые — по номеру."""
+    return (ru_key(item.reserve), ru_key(item.title), ru_key(item.extra), item.period, item.seq)
+
+
 def free_stock(params: dict) -> Result:
     qs = base().filter(free_q())
     q = models_q(params.get("models", ""))
@@ -239,7 +244,7 @@ def reserved(params: dict) -> Result:
     only_fg = params.get("only_fg") in ("1", "true")
     if only_fg:
         qs = qs.filter(stage=Stage.FG)
-    items = sorted(reserve_contains(qs, text), key=lambda i: (ru_key(i.reserve), i.period, i.seq))
+    items = sorted(reserve_contains(qs, text), key=by_reserve_then_title)
 
     same = Counter((ru_key(i.reserve), ru_key(item_title(i)), fabrics_text(i)) for i in items)
     groups: dict[str, Counter] = defaultdict(Counter)
@@ -287,7 +292,7 @@ def orders_by_reserve(params: dict) -> Result:
     if not text:
         raise ReportError("Впишите контрагента или часть текста резерва.")
     qs = base(with_purged=True).filter(not_deleted()).exclude(reserve="")
-    items = sorted(reserve_contains(qs, text), key=lambda i: (ru_key(i.reserve), i.period, i.seq))
+    items = sorted(reserve_contains(qs, text), key=by_reserve_then_title)
     return Result(
         "Заказы по контрагенту",
         f"Резерв содержит «{text}», включая отгруженные",

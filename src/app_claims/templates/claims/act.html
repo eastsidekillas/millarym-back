@@ -48,7 +48,7 @@ h2 { margin: 6mm 0 1.5mm; font-size: 10.5pt; font-weight: 600; }
   <tr><td class="k">Контрагент</td><td class="v">{{ claim.counterparty }}</td></tr>
   <tr><td class="k">Изделие</td><td class="v">{{ claim.product }}</td></tr>
   <tr><td class="k">Номер изделия и цвет</td><td class="v">{{ claim.item_number }}{% if claim.item_number and claim.color %}, {% endif %}{{ claim.color }}</td></tr>
-  <tr><td class="k">Деталь</td><td class="v">{{ claim.part }}</td></tr>
+  {% if claim.part %}<tr><td class="k">Деталь</td><td class="v">{{ claim.part }}</td></tr>{% endif %}
   <tr><td class="k">Описание претензии</td><td class="v">{{ claim.description }}</td></tr>
   <tr><td class="k">Данные с упаковки</td><td class="v">{{ claim.package_data }}</td></tr>
   <tr><td class="k">№ ТН и дата отгрузки</td><td class="v">{{ claim.waybill }}</td></tr>

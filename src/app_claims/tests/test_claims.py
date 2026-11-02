@@ -53,6 +53,9 @@ class ClaimsTest(Fixtures, TestCase):
         second = client.post("/api/v1/claims/", {"product": "Диван по эскизу", "item_number": "9578/ЗАК"}, format="json").json()
         self.assertTrue(second["number"].endswith("/002"))
         self.assertIsNone(second["item"])
+        work = client.patch(f"/api/v1/claims/{second['id']}/", {"manager_work": "Позвонила клиенту 21.10"}, format="json")
+        self.assertEqual(work.status_code, 200, work.content)
+        self.assertEqual(work.json()["manager_work"], "Позвонила клиенту 21.10")
 
     def test_rights_list_filters_and_stats(self):
         self.assertEqual(self.client_for(self.storekeeper).post("/api/v1/claims/", {"product": "x"}, format="json").status_code, 403)
@@ -81,7 +84,8 @@ class ClaimsTest(Fixtures, TestCase):
         blank = client.get("/api/v1/claims/blank/")
         sheet = load_workbook(BytesIO(blank.content)).active
         self.assertEqual(sheet["A6"].value, "АКТ-ПРЕТЕНЗИЯ")
-        self.assertEqual(sheet["A13"].value, "Описание претензии")
+        self.assertEqual(sheet["A12"].value, "Описание претензии")
+        self.assertNotIn("Деталь", [sheet.cell(r, 1).value for r in range(1, 30)])
         self.assertIn("ИП Окулова В.А.", sheet.data_validations.dataValidation[0].formula1)
         self.assertEqual(client.delete(f"/api/v1/claims/{claim['id']}/photos/{photo.json()['id']}/").status_code, 204)
         self.assertEqual(client.delete(f"/api/v1/claims/{claim['id']}/").status_code, 405)

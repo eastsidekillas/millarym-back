@@ -89,6 +89,7 @@ class Claim(models.Model):
     invoice_price = models.DecimalField("цена по накладной", max_digits=10, decimal_places=2, null=True, blank=True)
     customer_shipped_at = models.DateField("дата отгрузки конечному покупателю", null=True, blank=True)
     demands = models.TextField("требования покупателя", blank=True, default="")
+    manager_work = models.TextField("работа менеджера по рекламации", blank=True, default="")
 
     claim_type = models.CharField("тип претензии", max_length=20, choices=ClaimType.choices, default=ClaimType.REVIEW)
     arrived_at = models.DateField("дата поступления на склад", null=True, blank=True)
