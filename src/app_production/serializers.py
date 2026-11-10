@@ -152,7 +152,7 @@ class FabricAmountSerializer(serializers.Serializer):
 class ItemCreateSerializer(serializers.Serializer):
     model = serializers.PrimaryKeyRelatedField(queryset=ProductModel.objects.all(), required=False, allow_null=True)
     custom_name = serializers.CharField(max_length=200, required=False, allow_blank=True, default="")
-    fabrics = FabricInputSerializer(many=True)
+    fabrics = FabricInputSerializer(many=True, required=False, default=list)
     extra = serializers.CharField(max_length=500, required=False, allow_blank=True, default="")
     reserve = serializers.CharField(max_length=300, required=False, allow_blank=True, default="")
     indiv = serializers.BooleanField(required=False, default=False)

@@ -201,8 +201,8 @@ class ActionApiTest(ApiTest):
     def test_create_validation(self):
         client = self.as_user(self.manager)
         r = client.post("/api/v1/items/", self.body(fabrics=[]), format="json")
-        self.assertEqual(r.status_code, 400)
-        self.assertIn("основную ткань", r.json()["detail"])
+        self.assertEqual(r.status_code, 201, r.content)
+        self.assertEqual(r.json()[0]["fabrics"], [])
         r = client.post("/api/v1/items/", self.body(qty=51), format="json")
         self.assertIn("qty", r.json()["errors"])
         r = client.post("/api/v1/items/", self.body(model=999999), format="json")

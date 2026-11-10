@@ -62,9 +62,14 @@ class CreateTest(ServiceTest):
             [item] = self.create()
         self.assertEqual(item.number, f"{next_year.year % 100:02d}/0001")
 
+    def test_fabrics_optional(self):
+        # заказ заводят без тканей — ткань дописывают позже
+        [item] = self.create(fabrics=[], reserve="ИП Фоминых")
+        self.assertEqual((item.stage, item.fabrics.count()), (Stage.ORDERS, 0))
+        [item] = self.create(fabrics=[{"slot": "comp1", "fabric": self.velour}])
+        self.assertEqual(list(item.fabrics.values_list("slot", flat=True)), ["comp1"])
+
     def test_fabric_rules(self):
-        with self.assertRaisesMessage(ActionError, "основную ткань"):
-            self.create(fabrics=[{"slot": "comp1", "fabric": self.velour}])
         with self.assertRaisesMessage(ActionError, "один раз"):
             self.create(fabrics=self.fabrics() + [{"slot": "main", "fabric": self.leather}])
         self.leather.active = False
