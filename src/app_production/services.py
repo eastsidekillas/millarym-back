@@ -83,8 +83,7 @@ def check_fabrics(fabrics: list[FabricInput], keep_hidden: set[int] = frozenset(
     slots = [f["slot"] for f in fabrics]
     if len(slots) != len(set(slots)):
         raise ActionError("Каждое место ткани можно указать один раз.")
-    if FabricSlot.MAIN not in slots:
-        raise ActionError("Укажите основную ткань.")
+    # ткани не обязательны: заказ заводят сразу, а ткань с метражом дописывают, когда согласуют с клиентом
     for f in fabrics:
         if f["slot"] not in FabricSlot.values:
             raise ActionError(f"Неизвестное место ткани: {f['slot']}.")
@@ -573,8 +572,8 @@ def update_item(
 
     if fabrics is not None:
         check_fabrics(fabrics, keep_hidden=set(item.fabrics.values_list("fabric_id", flat=True)))
-        before = fabrics_text(item.fabrics.select_related("fabric"))
-        after = fabrics_text(fabrics)
+        before = fabrics_text(item.fabrics.select_related("fabric")) or "нет"
+        after = fabrics_text(fabrics) or "нет"
         if before != after:
             item.fabrics.all().delete()
             ItemFabric.objects.bulk_create(
