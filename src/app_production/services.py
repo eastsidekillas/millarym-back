@@ -26,6 +26,8 @@ from .numbering import take_numbers
 MAX_QTY = 50
 
 NEXT = {Stage.ORDERS: Stage.CUT, Stage.CUT: Stage.COVER, Stage.COVER: Stage.WORK, Stage.WORK: Stage.FG}
+# «Изменения учтены» снимает цех, который работает с изделием, — тот, у кого есть отметки или переводы этапов
+ACK_RIGHTS = ("marks", "move_orders_cut", "move_cut_cover", "move_cover_work", "move_work_fg", "move_any")
 MOVE_RIGHT = {
     Stage.CUT: "move_orders_cut",
     Stage.COVER: "move_cut_cover",
@@ -139,8 +141,9 @@ def create_items(
     require(user, "edit")
     if not 1 <= qty <= MAX_QTY:
         raise ActionError(f"Количество — от 1 до {MAX_QTY}.")
-    model, custom_name = check_name(model, custom_name)
-    check_fabrics(fabrics)
+    # копия повторяет изделие как есть: скрытые с тех пор модель и ткани ей не мешают
+    model, custom_name = check_name(model, custom_name, current=copy_of.model if copy_of else None)
+    check_fabrics(fabrics, keep_hidden=set(copy_of.fabrics.values_list("fabric_id", flat=True)) if copy_of else frozenset())
 
     reserve = reserve.strip()
     now = timezone.now()
@@ -304,6 +307,8 @@ def trash(user, item_id: int) -> Item:
 @transaction.atomic
 def ack_changes(user, item_id: int) -> Item:
     """Цех увидел правку изделия — отметка «изменено» в списке снимается."""
+    if not any(user.has_perm(f"app_auth.{code}") for code in ACK_RIGHTS):
+        raise NoRight(no_right_message("marks"))
     item = lock(item_id)
     if item.changed_at is None:
         return item
@@ -480,6 +485,12 @@ def set_reserve(user, item_id: int, reserve: str) -> Item:
     old, new = item.reserve, (reserve or "").strip()
     if old == new:
         return item
+    if not new and item.stage == Stage.ORDERS:
+        # на «Заказах» без резерва изделие потерялось бы: в свободные остатки «Заказы» не входят
+        raise ActionError(
+            f"{item.number} на «Заказах» — без резерва его не оставить. Клиент отказался — «Снять заказ»; "
+            "изделие пойдёт в работу свободным — сначала переведите его в крой."
+        )
     if not new:
         text = f"Резерв снят (был «{old}»)"
         item.reserved_at = None
