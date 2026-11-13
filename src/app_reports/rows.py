@@ -1,3 +1,4 @@
+import re
 from dataclasses import dataclass, field
 from datetime import date
 
@@ -68,6 +69,37 @@ def sewing(item: Item) -> str:
     if item.sew_at:
         return f"в шитье {fmt_date(item.sew_at)}"
     return ""
+
+
+CORNER = re.compile(r"^(лев|прав)\w*(\s+угол)?$", re.IGNORECASE)
+OVERLAYS = re.compile(r"^накладки\s+(.+)$", re.IGNORECASE)
+LEGACY_SEP = " · "
+
+
+def split_extra(extra: str) -> tuple[str, str, str]:
+    """«правый угол, накладки венге, без ножек» → («Правый», «венге», «без ножек»): колонки номенклатурного плана."""
+    corner, overlays, rest = "", "", []
+    for part in (p.strip() for p in (extra or "").split(",")):
+        if not part:
+            continue
+        if not corner and (m := CORNER.match(part)):
+            corner = "Левый" if m.group(1).lower() == "лев" else "Правый"
+        elif not overlays and (m := OVERLAYS.match(part)):
+            overlays = m.group(1).strip().lower()
+        else:
+            rest.append(part)
+    return corner, overlays, ", ".join(rest)
+
+
+def order_numbers(legacy_number: str) -> str:
+    """Номера заказов из старого номера: «114542 · 9578/ЗАК · 9580/ЗАК» → «9578, 9580»."""
+    parts = (p.strip() for p in (legacy_number or "").split(LEGACY_SEP))
+    return ", ".join(p.removesuffix("/ЗАК") for p in parts if p.endswith("/ЗАК"))
+
+
+def manager_name(item: Item) -> str:
+    user = item.manager
+    return user.last_name.strip() or user.username
 
 
 def stage_index(item: Item) -> int:

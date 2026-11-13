@@ -55,7 +55,33 @@ def _place(ws, image: XlImage, col: int, row: int, x: int) -> None:
     ws.add_image(image)
 
 
+def build_plain_xlsx(result: Result) -> bytes:
+    """Только заголовки и строки, с A1: без логотипа, шапки, групп и фото — для вставки в номенклатурный план."""
+    wb = Workbook()
+    ws = wb.active
+    ws.title = re.sub(r"[\\/*?:\[\]]", "-", result.title)[:31]
+    columns = result.columns
+    for c, col in enumerate(columns, start=1):
+        cell = ws.cell(row=1, column=c, value=col.title)
+        cell.font = Font(name=FONT, size=10, bold=True)
+        ws.column_dimensions[get_column_letter(c)].width = col.width
+    for r, row in enumerate(result.rows, start=2):
+        for c, col in enumerate(columns, start=1):
+            value = row.cells.get(col.key, "")
+            if col.kind == "number" and str(value).isdigit():
+                value = int(value)
+            ws.cell(row=r, column=c, value=value if value != "" else None).font = Font(name=FONT, size=10)
+    if result.rows:
+        ws.auto_filter.ref = f"A1:{get_column_letter(len(columns))}{len(result.rows) + 1}"
+    ws.freeze_panes = "A2"
+    buf = BytesIO()
+    wb.save(buf)
+    return buf.getvalue()
+
+
 def build_xlsx(result: Result) -> bytes:
+    if result.plain:
+        return build_plain_xlsx(result)
     wb = Workbook()
     ws = wb.active
     ws.title = re.sub(r"[\\/*?:\[\]]", "-", result.title)[:31]

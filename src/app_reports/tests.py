@@ -1,5 +1,6 @@
 from datetime import date, datetime
 from io import BytesIO
+from urllib.parse import unquote
 
 from django.test import TestCase
 from django.utils import timezone
@@ -9,6 +10,7 @@ from rest_framework.test import APIClient
 from app_production import services as s
 from app_production.models import Item, Stage
 from app_production.tests.base import Fixtures
+from app_reports.rows import order_numbers, split_extra
 
 
 class ReportsTest(Fixtures, TestCase):
@@ -57,11 +59,79 @@ class ReportsTest(Fixtures, TestCase):
         cells = {r["number"]: r["cells"] for r in data["rows"]}
         self.assertEqual((cells[b.number]["reserve"], cells[o.number]["reserve"]), ("свободно", "ИП Петров"))
         self.assertEqual((cells[o.number]["where"], cells[b.number]["where"]), ("Заказы", "Крой"))
-        self.assertEqual((cells[b.number]["fabrics"], cells[b.number]["meters"]), ("Основа: Велюр 03", "12 м"))
+        self.assertEqual((cells[b.number]["main"], cells[b.number]["main_m"]), ("Велюр 03", "12 м"))
+        self.assertEqual([c["key"] for c in data["columns"]][2:4], ["main", "main_m"])
         self.assertEqual(data["rows"][0]["group"], "Бостон: 2 шт.")
         totals = dict(data["summary"][0]["rows"])
         self.assertEqual(totals, {"Всего изделий": "3", "В резерве": "1", "Свободных": "2"})
         self.assertEqual(self.client.get("/api/v1/reports/revision/xlsx/").status_code, 200)
+
+    def test_split_extra(self):
+        self.assertEqual(split_extra("левый угол, накладки венге"), ("Левый", "венге", ""))
+        self.assertEqual(split_extra("Правый"), ("Правый", "", ""))
+        self.assertEqual(split_extra("Накладки белые"), ("", "белые", ""))
+        self.assertEqual(split_extra("правый угол, накладки венге, без ножек"), ("Правый", "венге", "без ножек"))
+        self.assertEqual(split_extra(""), ("", "", ""))
+
+    def test_order_numbers(self):
+        self.assertEqual(order_numbers("114542 · 9578/ЗАК"), "9578")
+        self.assertEqual(order_numbers("114542 · 9578/ЗАК · 9580/ЗАК"), "9578, 9580")
+        self.assertEqual(order_numbers("114542"), "")
+        self.assertEqual(order_numbers(""), "")
+
+    def test_nomenclature(self):
+        [a] = self.make(reserve="Фобос (Тура)", extra="правый угол, накладки венге, без ножек")
+        Item.objects.filter(pk=a.pk).update(legacy_number="114484 · 9568/ЗАК")
+        [b] = self.make(reserve="Фобос (Тура) ")
+        [c] = self.make(reserve="Копылова (8 Марта), Красноуфимск")
+        self.make(reserve="Другой")
+        [t] = self.make(reserve="Фобос (Тура)")
+        s.trash(self.director, t.pk)
+        partners = self.client.get("/api/v1/reports/nomenclature/partners/").json()
+        self.assertIn({"id": "Фобос (Тура)", "name": "Фобос (Тура)", "count": 2}, partners)
+        q = "Фобос (Тура)|Копылова (8 Марта), Красноуфимск"
+        data = self.client.get("/api/v1/reports/nomenclature/", {"partners": q}).json()
+        self.assertEqual({r["number"] for r in data["rows"]}, {a.number, b.number, c.number})
+        self.assertEqual(
+            [col["title"] for col in data["columns"]],
+            ["ID", "Заказ", "Наименование изделия", "Цена", "Угол", "Накладки", "Дополнение", "Резерв", "Менеджер", "Склад", "ВАЖНО", "Дата отгр.", "Бригада"],
+        )
+        row = next(r["cells"] for r in data["rows"] if r["number"] == a.number)
+        self.assertEqual((row["order"], row["corner"], row["overlays"], row["extra"]), ("9568", "Правый", "венге", "без ножек"))
+        self.assertEqual(row["manager"], self.manager.last_name or self.manager.username)
+        self.assertEqual(row["stage"], a.get_stage_display())
+        self.assertEqual((row["price"], row["important"], row["ship_date"], row["team"]), ("", "", "", ""))
+
+    def test_nomenclature_manager_without_last_name(self):
+        type(self.manager).objects.filter(pk=self.manager.pk).update(last_name="  ")
+        [a] = self.make(reserve="Фобос")
+        [row] = self.client.get("/api/v1/reports/nomenclature/", {"partners": "Фобос"}).json()["rows"]
+        self.assertEqual(row["cells"]["manager"], self.manager.username)
+        self.assertEqual(self.client.get("/api/v1/reports/nomenclature/").status_code, 400)
+
+    def test_nomenclature_spaced_reserve_stays_together(self):
+        [x] = self.make(reserve="Фобос")
+        [y] = self.make(reserve="Абв")
+        [z] = self.make(reserve="Фобос")
+        Item.objects.filter(pk=x.pk).update(reserve=" Фобос")  # пробелы приходят из старой базы, форма их обрезает
+        Item.objects.filter(pk=z.pk).update(reserve="Фобос ")
+        data = self.client.get("/api/v1/reports/nomenclature/", {"partners": "Фобос|Абв"}).json()
+        self.assertEqual([r["group"] for r in data["rows"]], ["Абв: 1 шт.", "Фобос: 2 шт.", "Фобос: 2 шт."])
+        self.assertEqual(data["rows"][0]["number"], y.number)
+
+    def test_nomenclature_xlsx_is_plain(self):
+        [a] = self.make(reserve="Фобос (Тура)")
+        resp = self.client.get("/api/v1/reports/nomenclature/xlsx/", {"partners": "Фобос (Тура)"})
+        ws = load_workbook(BytesIO(resp.content)).active
+        self.assertEqual(ws["A1"].value, "ID")
+        self.assertEqual(ws["M1"].value, "Бригада")
+        self.assertEqual(str(ws["A2"].value), a.number)
+        self.assertEqual(ws.max_row, 2)
+        self.assertEqual(set(ws.merged_cells.ranges), set())
+        name = self.master.last_name or self.master.username
+        self.assertIn(f"Номенклатура {name}", unquote(resp["Content-Disposition"]))
+        old = load_workbook(BytesIO(self.client.get("/api/v1/reports/revision/xlsx/").content)).active
+        self.assertEqual(old["B1"].value, "Ревизия: все изделия")
 
     def test_no_fabric_shows_fabrics(self):
         [o] = self.make(reserve="ИП Петров")

@@ -11,12 +11,13 @@ from app_production.queries import base_queryset
 
 from .excel import build_xlsx
 from .passport import MAX_ITEMS, mark_printed, render_passports
-from .reports import BY_KIND, REPORTS, ReportError, free_stock_models, single_item
+from .reports import BY_KIND, REPORTS, ReportError, free_stock_models, partners_list, single_item
 
 XLSX = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
 PARAMS = [
     OpenApiParameter("models", str, description="id моделей через запятую, custom — вне справочника"),
     OpenApiParameter("q", str),
+    OpenApiParameter("partners", str, description="партнёры (резерв целиком) через |"),
     OpenApiParameter("only_fg", bool),
     OpenApiParameter("from", str, description="ГГГГ-ММ-ДД"),
     OpenApiParameter("to", str, description="ГГГГ-ММ-ДД"),
@@ -31,12 +32,14 @@ def xlsx_response(result) -> HttpResponse:
     return response
 
 
-def run(kind: str, params):
+def run(kind: str, params, user):
     report = BY_KIND.get(kind)
     if report is None:
         raise NotFound("Такого отчёта нет.")
+    values = {k: params.get(k) for k in params}
+    values["_user"] = user.last_name.strip() or user.username  # для имени файла: чья выгрузка
     try:
-        return report.build({k: params.get(k) for k in params})
+        return report.build(values)
     except ReportError as err:
         raise ValidationError({"detail": [str(err)]})
 
@@ -50,19 +53,25 @@ class ReportListView(APIView):
 class ReportView(APIView):
     @extend_schema(parameters=PARAMS, responses=OpenApiTypes.OBJECT)
     def get(self, request, kind: str):
-        return Response(run(kind, request.query_params).as_json())
+        return Response(run(kind, request.query_params, request.user).as_json())
 
 
 class ReportXlsxView(APIView):
     @extend_schema(parameters=PARAMS, responses={(200, XLSX): OpenApiTypes.BINARY})
     def get(self, request, kind: str):
-        return xlsx_response(run(kind, request.query_params))
+        return xlsx_response(run(kind, request.query_params, request.user))
 
 
 class FreeStockModelsView(APIView):
     @extend_schema(responses=OpenApiTypes.OBJECT)
     def get(self, request):
         return Response(free_stock_models())
+
+
+class NomenclaturePartnersView(APIView):
+    @extend_schema(responses=OpenApiTypes.OBJECT)
+    def get(self, request):
+        return Response(partners_list())
 
 
 class ItemXlsxView(APIView):

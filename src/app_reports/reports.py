@@ -8,10 +8,10 @@ from django.utils import timezone
 from django.utils.dateparse import parse_date
 
 from app_catalog.models import Deadlines, ProductModel
-from app_production.models import Item, Stage, TrashReason
+from app_production.models import FabricSlot, Item, Stage, TrashReason
 from app_production.queries import free_q, late_q
 
-from .rows import Row, fabrics_text, fmt_date, item_title, meters_text, model_photo, photos, ru_key, stage_index, sewing, where
+from .rows import Row, amount, fabrics_text, fmt_date, item_title, manager_name, meters_text, model_photo, order_numbers, photos, ru_key, sewing, split_extra, stage_index, where
 
 
 class ReportError(Exception):
@@ -49,6 +49,7 @@ class Result:
     rows: list[Row]
     summary: list[Summary] = field(default_factory=list)
     filename: str = ""
+    plain: bool = False  # xlsx — голая таблица с первой строки: её вставляют в чужой файл
 
     def as_json(self) -> dict:
         return {
@@ -179,9 +180,26 @@ def order_row(item: Item) -> Row:
     )
 
 
+def slot_cells(item: Item) -> dict:
+    """Каждая ткань — в свою пару колонок: «main» / «main_m», «comp1» / «comp1_m»…"""
+    cells = {}
+    for f in item.fabrics.all():
+        cells[f.slot] = f.fabric.name
+        cells[f"{f.slot}_m"] = amount(f) if f.meters is not None else ""
+    return cells
+
+
+def slot_columns(used: set[str]) -> list[Column]:
+    cols = []
+    for slot in FabricSlot:
+        if slot == FabricSlot.MAIN or slot.value in used:
+            cols += [Column(slot.value, slot.label, 20), Column(f"{slot.value}_m", "м", 7)]
+    return cols
+
+
 def by_reserve_then_title(item: Item) -> tuple:
     """По контрагенту, внутри контрагента — изделия по алфавиту, одинаковые — по номеру."""
-    return (ru_key(item.reserve), ru_key(item.title), ru_key(item.extra), item.period, item.seq)
+    return (ru_key(item.reserve.strip()), ru_key(item.title), ru_key(item.extra), item.period, item.seq)
 
 
 def free_stock(params: dict) -> Result:
@@ -215,10 +233,12 @@ def revision(params: dict) -> Result:
         key=lambda i: (ru_key(i.title), ru_key(i.extra), stage_index(i), i.period, i.seq),
     )
     by_title = Counter(i.title for i in items)
-    rows = []
+    rows, used = [], set()
     for i in items:
         row = stock_row(i)
-        row.cells["meters"] = meters_text(i)
+        del row.cells["fabrics"]
+        row.cells.update(slot_cells(i))
+        used.update(row.cells)
         row.cells["reserve"] = i.reserve or "свободно"
         row.group = f"{i.title}: {by_title[i.title]} шт."
         rows.append(row)
@@ -231,10 +251,78 @@ def revision(params: dict) -> Result:
     return Result(
         "Ревизия: все изделия",
         f"Все этапы, в резерве и свободные, на {today_label()}",
-        [COL_ITEM, COL_NUMBER, COL_FABRICS, COL_METERS, COL_RESERVE, COL_WHERE],
+        [COL_ITEM, COL_NUMBER, *slot_columns(used), COL_RESERVE, COL_WHERE],
         rows,
         summary,
         filename=f"Ревизия {today_label()}",
+    )
+
+
+PARTNER_SEP = "|"
+NOMENCLATURE_COLUMNS = [
+    Column("number", "ID", 10, "number"),
+    Column("order", "Заказ", 9),
+    Column("item", "Наименование изделия", 30),
+    Column("price", "Цена", 9),
+    Column("corner", "Угол", 8),
+    Column("overlays", "Накладки", 10),
+    Column("extra", "Дополнение", 18),
+    Column("reserve", "Резерв", 24),
+    Column("manager", "Менеджер", 14),
+    Column("stage", "Склад", 13),
+    Column("important", "ВАЖНО", 9),
+    Column("ship_date", "Дата отгр.", 10),
+    Column("team", "Бригада", 12),
+]
+
+
+def partners_list() -> list[dict]:
+    counts = Counter(r.strip() for r in Item.objects.filter(trashed_at__isnull=True).exclude(reserve="").values_list("reserve", flat=True))
+    counts.pop("", None)
+    return sorted(({"id": r, "name": r, "count": n} for r, n in counts.items()), key=lambda r: ru_key(r["name"]))
+
+
+def nomenclature_row(item: Item) -> Row:
+    corner, overlays, rest = split_extra(item.extra)
+    cells = {
+        "number": item.number,
+        "order": order_numbers(item.legacy_number),
+        "item": item.title,
+        "price": "",
+        "corner": corner,
+        "overlays": overlays,
+        "extra": "; ".join(t for t in (sewing(item), rest) if t),
+        "reserve": item.reserve.strip(),
+        "manager": manager_name(item),
+        "stage": item.get_stage_display(),
+        "important": "",
+        "ship_date": "",
+        "team": "",
+    }
+    return Row(item.pk, item.number, cells)
+
+
+def nomenclature(params: dict) -> Result:
+    """Изделия выбранных партнёров в колонках номенклатурного плана: менеджер выгружает, руководитель сводит в общий план."""
+    wanted = {p.strip() for p in (params.get("partners") or "").split(PARTNER_SEP) if p.strip()}
+    if not wanted:
+        raise ReportError("Отметьте партнёров для выгрузки.")
+    qs = base().select_related("manager").filter(trashed_at__isnull=True).exclude(reserve="")
+    items = sorted((i for i in qs if i.reserve.strip() in wanted), key=by_reserve_then_title)
+    by_partner = Counter(i.reserve.strip() for i in items)
+    rows = []
+    for i in items:
+        row = nomenclature_row(i)
+        row.group = f"{i.reserve.strip()}: {by_partner[i.reserve.strip()]} шт."
+        rows.append(row)
+    names = sorted(wanted, key=ru_key)
+    return Result(
+        "Для номенклатурного плана",
+        ", ".join(names),
+        NOMENCLATURE_COLUMNS,
+        rows,
+        filename=" ".join(f"Номенклатура {params.get('_user') or ''} {today_label()}".split()),
+        plain=True,
     )
 
 
@@ -456,9 +544,11 @@ def claims_report(params: dict) -> Result:
 
 
 MODELS_PARAM = Param("models", "Модели", "models")
+PARTNERS_PARAM = Param("partners", "Партнёры", "partners", True)
 REPORTS = [
     Report("free-stock", "Свободные остатки", "Все изделия без резерва на Крое, Складе чехлов, В работе и СГП, с фото тканей. Можно выбрать модели.", [MODELS_PARAM], free_stock),
     Report("reserved", "Зарезервированные по контрагенту", "Все подписанные изделия на любом этапе: итог по моделям для сверки с заявкой, повторы подсвечены. Годится для погрузки.", [Param("q", "Контрагент или часть резерва", "text", placeholder="Пусто — все контрагенты"), Param("only_fg", "Только СГП", "bool")], reserved),
+    Report("nomenclature", "Для номенклатурного плана", "Изделия выбранных партнёров на всех этапах, колонки — в порядке номенклатурного плана. Цена, ВАЖНО, дата отгрузки и бригада — пустые, их заполняют в плане.", [PARTNERS_PARAM], nomenclature),
     Report("revision", "Ревизия: все изделия", "Все изделия на всех этапах — заказы, в резерве и свободные — по алфавиту моделей, с количеством по каждой модели. Для сверки со складом.", [], revision),
     Report("orders-period", "Заказы за период", "Изделия с резервом, заведённые в эти даты, включая отгруженные.", [Param("from", "С", "date", True), Param("to", "По", "date", True)], orders_period),
     Report("orders-by-reserve", "Заказы по контрагенту", "Все изделия, у которых резерв содержит текст, включая отгруженные.", [Param("q", "Контрагент или часть резерва", "text", True, "Например, Фоминых")], orders_by_reserve),
