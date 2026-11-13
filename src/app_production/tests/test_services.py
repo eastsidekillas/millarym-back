@@ -370,6 +370,23 @@ class ReserveTest(ServiceTest):
             ["Резерв: «ООО Мебель»", "Резерв: «ООО Мебель» → «ООО Мебель-2»", "Резерв снят (был «ООО Мебель-2»)"],
         )
 
+    def test_clear_reserve_on_orders_refused(self):
+        [item] = self.create(reserve="ООО Мебель")
+        self.assertEqual(item.stage, Stage.ORDERS)
+        with self.assertRaisesMessage(ActionError, "Снять заказ"):
+            s.set_reserve(self.manager, item.pk, "  ")
+        item.refresh_from_db()
+        self.assertEqual(item.reserve, "ООО Мебель")
+
+    def test_ack_changes_needs_workshop_right(self):
+        [item] = self.create()
+        s.update_item(self.manager, item.pk, extra="правый угол")
+        for user in (self.storekeeper, self.manager):
+            with self.assertRaises(NoRight):
+                s.ack_changes(user, item.pk)
+        item = s.ack_changes(self.cutter, item.pk)
+        self.assertIsNone(item.changed_at)
+
     def test_who_cannot_reserve(self):
         [item] = self.create()
         for user in (self.master, self.storekeeper):
@@ -449,6 +466,16 @@ class EditCopyTest(ServiceTest):
         self.assertEqual(copy.fabrics.count(), 2)
         self.assertEqual(item.events.order_by("-id").first().text, f"Скопировано в {copy.number}")
         self.assertEqual(copy.events.get().text, f"Копия {item.number} → Заказы")
+
+
+    def test_copy_keeps_hidden_model_and_fabric(self):
+        [item] = self.create(reserve="ИП Сидоров")
+        type(self.model).objects.filter(pk=self.model.pk).update(active=False)
+        type(self.velour).objects.filter(pk=self.velour.pk).update(active=False)
+        copy = s.copy_item(self.manager, item.pk)
+        self.assertEqual((copy.model_id, list(copy.fabrics.values_list("fabric_id", flat=True))), (self.model.pk, [self.velour.pk]))
+        with self.assertRaises(ActionError):
+            self.create(model=type(self.model).objects.get(pk=self.model.pk))  # новое со скрытой моделью — по-прежнему нельзя
 
 
 class FabricAmountTest(ServiceTest):
